@@ -134,7 +134,7 @@ TMP_DST="$STAGING_DIR/$IMAGE_HASH"
 
 IMAGE_NAME="one-${ID}"
 IMAGE_PATH="/dev/drbd/by-res/${IMAGE_NAME}/0"
-LINSTOR_SOURCE="${IMAGE_NAME}"
+LINSTOR_SRC="${IMAGE_NAME}"
 
 DOWNLOADER_ARGS=`set_downloader_args "$MD5" "$SHA1" "$NO_DECOMPRESS" "$LIMIT_TRANSFER_BW" "$SRC" -`
 
@@ -164,25 +164,25 @@ esac
 multiline_exec_and_log "set -e -o pipefail; $DUMP | $SSH $DST_HOST $DD of=$TMP_DST bs=${DD_BLOCK_SIZE:-64k}" \
              "Error dumping $SRC to $DST_HOST:$TMP_DST"
 
-ORIGINAL_SIZE="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
+ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
 
-CREATE_CMD=$(cat <<EOF
+REGISTER_CMD=$(cat <<EOF
     set -e -o pipefail
 
     $LINSTOR resource-definition create "$IMAGE_NAME"
-    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$IMAGE_NAME" "${ORIGINAL_SIZE}B"
+    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$IMAGE_NAME" "${ORIGINAL_SIZE_B}B"
     $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$IMAGE_NAME" 
 
 EOF
 )
 
-multiline_exec_and_log        "$CREATE_CMD" \
-                    "Error creating $LINSTOR_SOURCE"
+multiline_exec_and_log "$REGISTER_CMD" \
+                    "Error registering $LINSTOR_SRC"
 
 IMPORT_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    test -b /dev/drbd/by-res/${IMAGE_NAME}/0
+    test -b "${IMAGE_PATH}"
     $QEMU_IMG convert -O raw "$TMP_DST" "$IMAGE_PATH"
 
     # remove original
@@ -193,8 +193,8 @@ EOF
 linstor_attach_resource "$DST_HOST" "$IMAGE_NAME" "$DISKLESS_POOL"
 
 ssh_exec_and_log    "$DST_HOST" "$IMPORT_CMD" \
-                    "Error importing $LINSTOR_SOURCE on $DST_HOST"
+                    "Error importing $LINSTOR_SRC on $DST_HOST"
 
 linstor_detach_resource "$DST_HOST" "$IMAGE_NAME"
 
-echo "$LINSTOR_SOURCE"
+echo "$LINSTOR_SRC"
