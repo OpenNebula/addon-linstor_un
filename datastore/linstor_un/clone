@@ -1,0 +1,173 @@
+#!/bin/bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2019, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+###############################################################################
+# This script is used to copy a VM image (SRC) to the image repository as DST
+# Several SRC types are supported
+###############################################################################
+# -------- Set up the environment to source common tools & conf ------------
+if [ -z "${ONE_LOCATION}" ]; then
+    LIB_LOCATION=/usr/lib/one
+else
+    LIB_LOCATION=$ONE_LOCATION/lib
+fi
+
+. $LIB_LOCATION/sh/scripts_common.sh
+
+DRIVER_PATH=$(dirname $0)
+UTILS_PATH="${DRIVER_PATH}/.."
+
+source ${DRIVER_PATH}/../libfs.sh
+source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
+source ${DRIVER_PATH}/linstor_utils.sh
+
+# -------- Get cp and datastore arguments from OpenNebula core ------------
+
+DRV_ACTION=$1
+ID=$2
+
+XPATH="${UTILS_PATH}/xpath.rb -b $DRV_ACTION"
+
+unset i j XPATH_ELEMENTS
+
+
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/BASE_PATH \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/RESTRICTED_DIRS \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/BRIDGE_LIST \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/STAGING_DIR \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/NODE_LIST \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/LAYER_LIST \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/REPLICAS_ON_SAME \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/REPLICAS_ON_DIFFERENT \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/AUTO_PLACE \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH_REGEX \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/STORAGE_POOL \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DISKLESS_POOL \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/ENCRYPTION \
+                    /DS_DRIVER_ACTION_DATA/IMAGE/PATH \
+                    /DS_DRIVER_ACTION_DATA/IMAGE/SIZE)
+
+BASE_PATH="${XPATH_ELEMENTS[j++]}"
+RESTRICTED_DIRS="${XPATH_ELEMENTS[j++]}"
+BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
+STAGING_DIR="${XPATH_ELEMENTS[j++]:-$STAGING_DIR}"
+LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+NODE_LIST="${XPATH_ELEMENTS[j++]}"
+LAYER_LIST="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_SAME="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_DIFFERENT="${XPATH_ELEMENTS[j++]}"
+AUTO_PLACE="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
+STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
+DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
+ENCRYPTION="${XPATH_ELEMENTS[j++]}"
+LINSTOR_SRC="${XPATH_ELEMENTS[j++]}"
+SIZE="${XPATH_ELEMENTS[j++]}"
+
+DST_HOST=`get_destination_host $ID`
+
+if [ -z "$DST_HOST" ]; then
+    error_message "Datastore template missing 'BRIDGE_LIST' attribute."
+    exit -1
+fi
+
+if [ -n "$LS_CONTROLLERS" ]; then
+    LINSTOR="$LINSTOR --controllers $LS_CONTROLLERS"
+fi
+if [ -n "$REPLICAS_ON_SAME" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-same $REPLICAS_ON_SAME"
+fi
+if [ -n "$REPLICAS_ON_DIFFERENT" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-different $REPLICAS_ON_DIFFERENT"
+fi
+if [ -n "$AUTO_PLACE" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --auto-place $AUTO_PLACE"
+fi
+if [ -n "$DO_NOT_PLACE_WITH" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with $DO_NOT_PLACE_WITH"
+fi
+if [ -n "$DO_NOT_PLACE_WITH_REGEX" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with-regex $DO_NOT_PLACE_WITH_REGEX"
+fi
+if [ -n "$LAYER_LIST" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --layer-list $LAYER_LIST"
+fi
+if [ "$ENCRYPTION" == "yes" ]; then
+    VOLUME_CREATE_ARGS="$VOLUME_CREATE_ARGS --encrypt"
+fi
+
+SAFE_DIRS=""
+
+SRC_IMAGE_NAME="${LINSTOR_SRC}"
+SRC_IMAGE_PATH="/dev/drbd/by-res/${SRC_IMAGE_NAME}/0"
+DST_IMAGE_NAME="one-${ID}"
+DST_IMAGE_PATH="/dev/drbd/by-res/${DST_IMAGE_NAME}/0"
+LINSTOR_DST="${DST_IMAGE_NAME}"
+
+
+VD_DATA="$($LINSTOR -m volume-definition list)"
+VD_STATUS=$?
+
+if [ "$VD_STATUS" != "0" ]; then
+    echo "$VD_DATA"
+    exit $VD_STATUS
+fi
+
+ORIGINAL_SIZE_K="$(linstor_vd_size "$VD_DATA" "$SRC_IMAGE_NAME")"
+if [ -z "$ORIGINAL_SIZE_K" ]; then
+    echo "Error getting $LINSTOR_SRC volume size"
+    exit 1
+fi
+
+REGISTER_CMD=$(cat <<EOF
+    set -e -o pipefail
+
+    $LINSTOR resource-definition create "$DST_IMAGE_NAME"
+    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$DST_IMAGE_NAME" "${ORIGINAL_SIZE_K}K"
+    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$DST_IMAGE_NAME" 
+
+EOF
+)
+
+multiline_exec_and_log "$REGISTER_CMD" \
+                    "Error registering $LINSTOR_DST"
+
+linstor_attach_resource "$DST_HOST" "$SRC_IMAGE_NAME" "$DISKLESS_POOL"
+linstor_attach_resource "$DST_HOST" "$DST_IMAGE_NAME" "$DISKLESS_POOL"
+
+CLONE_CMD=$(cat <<EOF
+    set -e -o pipefail
+
+    test -b "${SRC_IMAGE_PATH}"
+    test -b "${DST_IMAGE_PATH}"
+    $QEMU_IMG convert -O raw "$SRC_IMAGE_PATH" "$DST_IMAGE_PATH"
+EOF
+)
+
+ssh_exec_and_log "$DST_HOST" "$CLONE_CMD" \
+                 "Error cloning $LINSTOR_SRC to $LINSTOR_DST on $DST_HOST"
+
+linstor_detach_resource "$DST_HOST" "$SRC_IMAGE_NAME" "$DISKLESS_POOL"
+linstor_detach_resource "$DST_HOST" "$DST_IMAGE_NAME" "$DISKLESS_POOL"
+
+echo "$LINSTOR_DST"

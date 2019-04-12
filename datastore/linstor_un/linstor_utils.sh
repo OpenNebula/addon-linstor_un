@@ -26,6 +26,22 @@ linstor_monitor_storpool() {
         END{ printf "USED_MB=%0.f\nTOTAL_MB=%0.f\nFREE_MB=%0.f\n", total-free, total, free }'
 }
 
+
+#--------------------------------------------------------------------------------
+# Parse the output of linstor -m volume-definition list in json format and take
+# size of the volume definition for the resource
+# You **MUST** define JQ util before using this function
+#   @param $1 the json output of the command
+#   @param $2 resource name
+#--------------------------------------------------------------------------------
+linstor_vd_size() {
+    echo "$1" | $JQ -r ".[].rsc_dfns[] |
+	select(.rsc_name==\"${2}\").vlm_dfns[] |
+        select(.vlm_nr==0).vlm_size"
+}
+
+
+
 #--------------------------------------------------------------------------------
 # Attach diskless resource to the node if not exist
 #   @param $1 the node
