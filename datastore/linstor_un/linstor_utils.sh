@@ -85,3 +85,39 @@ EOF
     multiline_exec_and_log "$DETACH_CMD" "Error detaching $RES from $NODE"
 
 }
+
+#-------------------------------------------------------------------------------
+# Gets the host contains volume to be used as bridge to talk to the storage system
+# Implements a round robin for the bridges
+#   @param $1 - the volume (to search)
+#   @param $2 - ID to be used to round-robin between host bridges. Random if
+#   not defined
+#   @return host to be used as bridge
+#-------------------------------------------------------------------------------
+function get_image_host {
+    RES="$1"
+    IMAGE_NODES="$($LINSTOR -m resource list -r "${RES}" | $JQ -r '.[].resources[].node_name' | xargs)"
+    unset REDUCED_LIST
+    for NODE in $BRIDGE_LIST; do
+        if [[ " $IMAGE_NODES " =~ " $NODE " ]] ; then
+            REDUCED_LIST="$REDUCED_LIST $NODE"
+        fi
+    done
+    REDUCED_LIST=$(remove_off_hosts "$REDUCED_LIST")
+
+    if [ -z "$REDUCED_LIST" ]; then
+        error_message "All hosts from 'BRIDGE_LIST' that contains $RES are offline, error or disabled"
+        exit -1
+    fi
+
+    HOSTS_ARRAY=($REDUCED_LIST)
+    N_HOSTS=${#HOSTS_ARRAY[@]}
+
+    if [ -n "$2" ]; then
+        ARRAY_INDEX=$(($2 % ${N_HOSTS}))
+    else
+        ARRAY_INDEX=$((RANDOM % ${N_HOSTS}))
+    fi
+
+    echo ${HOSTS_ARRAY[$ARRAY_INDEX]}
+}
