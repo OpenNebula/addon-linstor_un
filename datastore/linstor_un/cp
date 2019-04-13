@@ -168,9 +168,11 @@ ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^v
 REGISTER_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    $LINSTOR resource-definition create "$LINSTOR_DST"
+    $LINSTOR resource-definition create "$IMAGE_NAME"
+    trap '$LINSTOR resource-definition delete "$LINSTOR_DST" --async' EXIT
     $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$LINSTOR_DST" "${ORIGINAL_SIZE_B}B"
     $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$LINSTOR_DST" 
+    trap '' EXIT
 
 EOF
 )

@@ -139,8 +139,10 @@ REGISTER_CMD=$(cat <<EOF
     set -e -o pipefail
 
     $LINSTOR resource-definition create "$IMAGE_NAME"
+    trap '$LINSTOR resource-definition delete "$LINSTOR_DST" --async' EXIT
     $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$IMAGE_NAME" "${SIZE}M"
     $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$IMAGE_NAME" 
+    trap '' EXIT
 
 EOF
 )
