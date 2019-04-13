@@ -1,0 +1,175 @@
+#!/bin/bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2019, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# clone fe:SOURCE host:remote_system_ds/disk.i size
+#   - fe is the front-end hostname
+#   - SOURCE is the path of the disk image in the form DS_BASE_PATH/disk
+#   - host is the target host to deploy the VM
+#   - remote_system_ds is the path for the system datastore in the host
+
+SRC=$1
+DST=$2
+VM_ID=$3
+DS_ID=$4
+
+#--------------------------------------------------------------------------------
+
+if [ -z "${ONE_LOCATION}" ]; then
+    TMCOMMON=/var/lib/one/remotes/tm/tm_common.sh
+    LIB_LOCATION=/usr/lib/one
+else
+    TMCOMMON=$ONE_LOCATION/var/remotes/tm/tm_common.sh
+    LIB_LOCATION=$ONE_LOCATION/lib
+fi
+
+DRIVER_PATH=$(dirname $0)
+
+source $TMCOMMON
+source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
+source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
+
+#-------------------------------------------------------------------------------
+# Compute the destination image name
+#-------------------------------------------------------------------------------
+
+SRC_PATH=`arg_path $SRC`
+SRC_RES="$(echo "$SRC_PATH" | $AWK -F/ '{print $(NF-1)}')"
+
+DST_HOST=`arg_host $DST`
+DST_PATH=`arg_path $DST`
+DST_DIR=`dirname $DST_PATH`
+DST_DS_ID=$(echo $DST_DIR | $AWK -F/ '{print $(NF-1)}')
+
+DISK_ID=$(echo $DST | awk -F. '{print $NF}')
+DST_RES="${SRC_RES}-${VM_ID}-${DISK_ID}"
+DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
+
+#-------------------------------------------------------------------------------
+# Get Image information
+#-------------------------------------------------------------------------------
+
+XPATH="${DRIVER_PATH}/../../datastore/xpath.rb --stdin"
+
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+        XPATH_ELEMENTS[i++]="$element"
+done < <(onevm show -x $VM_ID| $XPATH  \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/SIZE \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/ORIGINAL_SIZE \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/TYPE )
+
+SIZE="${XPATH_ELEMENTS[j++]}"
+ORIGINAL_SIZE="${XPATH_ELEMENTS[j++]}"
+TYPE="${XPATH_ELEMENTS[j++]}"
+
+#-------------------------------------------------------------------------------
+# Get Datastore information
+#-------------------------------------------------------------------------------
+
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+        XPATH_ELEMENTS[i++]="$element"
+done < <(onedatastore show -x $DST_DS_ID | $XPATH \
+                    /DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /DATASTORE/TEMPLATE/NODE_LIST \
+                    /DATASTORE/TEMPLATE/LAYER_LIST \
+                    /DATASTORE/TEMPLATE/REPLICAS_ON_SAME \
+                    /DATASTORE/TEMPLATE/REPLICAS_ON_DIFFERENT \
+                    /DATASTORE/TEMPLATE/AUTO_PLACE \
+                    /DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH \
+                    /DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH_REGEX \
+                    /DATASTORE/TEMPLATE/STORAGE_POOL \
+                    /DATASTORE/TEMPLATE/DISKLESS_POOL \
+                    /DATASTORE/TEMPLATE/ENCRYPTION)
+
+LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+NODE_LIST="${XPATH_ELEMENTS[j++]}"
+LAYER_LIST="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_SAME="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_DIFFERENT="${XPATH_ELEMENTS[j++]}"
+AUTO_PLACE="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
+STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
+DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
+ENCRYPTION="${XPATH_ELEMENTS[j++]}"
+
+#-------------------------------------------------------------------------------
+# Clone the image and create @snap if it does not exists
+#-------------------------------------------------------------------------------
+
+if [ -n "$LS_CONTROLLERS" ]; then
+    LINSTOR="$LINSTOR --controllers $LS_CONTROLLERS"
+fi
+if [ -n "$REPLICAS_ON_SAME" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-same $REPLICAS_ON_SAME"
+fi
+if [ -n "$REPLICAS_ON_DIFFERENT" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-different $REPLICAS_ON_DIFFERENT"
+fi
+if [ -n "$AUTO_PLACE" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --auto-place $AUTO_PLACE"
+fi
+if [ -n "$DO_NOT_PLACE_WITH" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with $DO_NOT_PLACE_WITH"
+fi
+if [ -n "$DO_NOT_PLACE_WITH_REGEX" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with-regex $DO_NOT_PLACE_WITH_REGEX"
+fi
+if [ -n "$LAYER_LIST" ]; then
+    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --layer-list $LAYER_LIST"
+fi
+if [ "$ENCRYPTION" == "yes" ]; then
+    VOLUME_CREATE_ARGS="$VOLUME_CREATE_ARGS --encrypt"
+fi
+
+REGISTER_CMD=$(cat <<EOF
+    set -e -o pipefail
+
+    $LINSTOR resource-definition create "$DST_RES"
+    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$DST_RES" "${SIZE}M"
+    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$DST_RES" 
+
+EOF
+)
+
+multiline_exec_and_log "$REGISTER_CMD" \
+                    "Error registering $DST"
+
+
+linstor_attach_resource "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
+linstor_attach_resource "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
+
+CLONE_CMD=$(cat <<EOF
+    set -e -o pipefail
+    mkdir -p "$DST_DIR"
+
+    $QEMU_IMG convert -O raw "$SRC_PATH" "$DST_DEV"
+    rm -f "$DST_PATH"
+    ln -s "$DST_DEV" "$DST_PATH"
+EOF
+)
+
+ssh_exec_and_log "$DST_HOST" "$CLONE_CMD" \
+                 "Error cloning $SRC_PATH to $DST_PATH on $DST_HOST"
+
+linstor_detach_resource "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
+
+exit 0
