@@ -122,19 +122,18 @@ fi
 set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 
 IMAGE_NAME="one-${ID}"
-IMAGE_PATH="/dev/drbd/by-res/${IMAGE_NAME}/0"
-LINSTOR_SRC="${IMAGE_PATH}"
+DST="/dev/drbd/by-res/${IMAGE_NAME}/0"
 
 # ------------ Image to save_as disk, no need to create a FS ------------
 
 if [ "$FSTYPE" = "save_as" ]; then
-    echo "$LINSTOR_SRC"
+    echo "$DST"
     exit 0
 fi
 
 # ------------ Create the image in the repository ------------
 
-MKFS_CMD=`mkfs_command ${IMAGE_PATH} $FSTYPE $SIZE`
+MKFS_CMD=`mkfs_command ${DST} $FSTYPE $SIZE`
 
 REGISTER_CMD=$(cat <<EOF
     set -e -o pipefail
@@ -147,10 +146,10 @@ EOF
 )
 
 multiline_exec_and_log "$REGISTER_CMD" \
-                    "Error registering $LINSTOR_SRC"
+                    "Error registering $DST"
 
 if [ "$FSTYPE" = "raw" ]; then
-    echo "$LINSTOR_SRC"
+    echo "$DST"
     exit 0
 fi
 
@@ -162,4 +161,4 @@ ssh_exec_and_log "$DST_HOST" "$MKFS_CMD" \
 linstor_detach_resource "$DST_HOST" "$IMAGE_NAME"
 
 
-echo "$LINSTOR_SRC"
+echo "$DST"

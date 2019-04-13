@@ -51,20 +51,19 @@ while IFS= read -r -d '' element; do
 done < <($XPATH     /DS_DRIVER_ACTION_DATA/IMAGE/SOURCE \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/LS_CONTROLLERS)
 
-LINSTOR_SRC="${XPATH_ELEMENTS[j++]}"
+SRC="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
-IMAGE_PATH="${LINSTOR_SRC}"
-IMAGE_NAME="$(echo "$IMAGE_PATH" | $AWK -F/ '{print $(NF-1)}')"
+LINSTOR_SRC="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
 
 # -------- Remove Image from Datastore ------------
 
-log "Removing $LINSTOR_SRC from the image repository"
+log "Removing $SRC from the image repository"
 
 DELETE_CMD=$(cat <<EOF
     set -e -o pipefail
-    $LINSTOR resource-definition delete "$IMAGE_NAME"
+    $LINSTOR resource-definition delete "$LINSTOR_SRC"
 EOF
 )
 
 multiline_exec_and_log "$DELETE_CMD" \
-                 "Error deleting $LINSTOR_SRC"
+                 "Error deleting $SRC"

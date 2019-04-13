@@ -53,19 +53,18 @@ done < <($XPATH     /DS_DRIVER_ACTION_DATA/IMAGE/SOURCE \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/BRIDGE_LIST \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/LS_CONTROLLERS)
 
-LINSTOR_SRC="${XPATH_ELEMENTS[j++]}"
+SRC="${XPATH_ELEMENTS[j++]}"
 SIZE="${XPATH_ELEMENTS[j++]}"
 BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
-IMAGE_PATH="${LINSTOR_SRC}"
-IMAGE_NAME="$(echo "$IMAGE_PATH" | $AWK -F/ '{print $(NF-1)}')"
+LINSTOR_SRC="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
 
 #-------------------------------------------------------------------------------
 # Output image source and format
 #-------------------------------------------------------------------------------
 
 INFO_SCRIPT=$(cat <<EOF
-CHECKSUM=\$(${MD5SUM} ${IMAGE_PATH} | cut -f1 -d' ')
+CHECKSUM=\$(${MD5SUM} ${SRC} | cut -f1 -d' ')
 
 if [ -z "\$CHECKSUM" ]; then
     exit 1
@@ -77,8 +76,8 @@ echo "<FORMAT><![CDATA[raw]]></FORMAT>"
 EOF
 )
 
-HOST=`get_destination_host_for_res "$IMAGE_NAME" 1`
-SRC="ssh://$HOST:$IMAGE_PATH"
+HOST=`get_destination_host_for_res "$LINSTOR_SRC" 1`
+SRC="ssh://$HOST:$SRC"
 INFO=$(ssh_monitor_and_log "$HOST" "$INFO_SCRIPT" "Image info script" 2>&1)
 
 INFO_STATUS=$?

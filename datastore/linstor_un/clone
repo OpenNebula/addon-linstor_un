@@ -81,16 +81,14 @@ DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
 STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
-LINSTOR_SRC="${XPATH_ELEMENTS[j++]}"
+SRC="${XPATH_ELEMENTS[j++]}"
 SIZE="${XPATH_ELEMENTS[j++]}"
 
-SRC_IMAGE_PATH="${LINSTOR_SRC}"
-SRC_IMAGE_NAME="$(echo "$SRC_IMAGE_PATH" | $AWK -F/ '{print $(NF-1)}')"
-DST_IMAGE_NAME="one-${ID}"
-DST_IMAGE_PATH="/dev/drbd/by-res/${DST_IMAGE_NAME}/0"
-LINSTOR_DST="${DST_IMAGE_PATH}"
+LINSTOR_SRC="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
+LINSTOR_DST="one-${ID}"
+DST="/dev/drbd/by-res/${LINSTOR_DST}/0"
 
-DST_HOST=`get_destination_host_for_res $SRC_IMAGE_NAME 0 $ID`
+DST_HOST=`get_destination_host_for_res $LINSTOR_SRC 0 $ID`
 
 if [ -z "$DST_HOST" ]; then
     error_message "Datastore template missing 'BRIDGE_LIST' attribute."
@@ -132,39 +130,39 @@ if [ "$VD_STATUS" != "0" ]; then
     exit $VD_STATUS
 fi
 
-ORIGINAL_SIZE_K="$(linstor_vd_size "$VD_DATA" "$SRC_IMAGE_NAME")"
+ORIGINAL_SIZE_K="$(linstor_vd_size "$VD_DATA" "$LINSTOR_SRC")"
 if [ -z "$ORIGINAL_SIZE_K" ]; then
-    echo "Error getting $LINSTOR_SRC volume size"
+    echo "Error getting $SRC volume size"
     exit 1
 fi
 
 REGISTER_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    $LINSTOR resource-definition create "$DST_IMAGE_NAME"
-    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$DST_IMAGE_NAME" "${ORIGINAL_SIZE_K}K"
-    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$DST_IMAGE_NAME" 
+    $LINSTOR resource-definition create "$LINSTOR_DST"
+    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$LINSTOR_DST" "${ORIGINAL_SIZE_K}K"
+    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$LINSTOR_DST" 
 
 EOF
 )
 
 multiline_exec_and_log "$REGISTER_CMD" \
-                    "Error registering $LINSTOR_DST"
+                    "Error registering $DST"
 
-linstor_attach_resource "$DST_HOST" "$SRC_IMAGE_NAME" "$DISKLESS_POOL"
-linstor_attach_resource "$DST_HOST" "$DST_IMAGE_NAME" "$DISKLESS_POOL"
+linstor_attach_resource "$DST_HOST" "$LINSTOR_SRC" "$DISKLESS_POOL"
+linstor_attach_resource "$DST_HOST" "$LINSTOR_DST" "$DISKLESS_POOL"
 
 CLONE_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    $QEMU_IMG convert -O raw "$SRC_IMAGE_PATH" "$DST_IMAGE_PATH"
+    $QEMU_IMG convert -O raw "$SRC" "$DST"
 EOF
 )
 
 ssh_exec_and_log "$DST_HOST" "$CLONE_CMD" \
-                 "Error cloning $LINSTOR_SRC to $LINSTOR_DST on $DST_HOST"
+                 "Error cloning $SRC to $DST on $DST_HOST"
 
-linstor_detach_resource "$DST_HOST" "$SRC_IMAGE_NAME" "$DISKLESS_POOL"
-linstor_detach_resource "$DST_HOST" "$DST_IMAGE_NAME" "$DISKLESS_POOL"
+linstor_detach_resource "$DST_HOST" "$LINSTOR_SRC" "$DISKLESS_POOL"
+linstor_detach_resource "$DST_HOST" "$LINSTOR_DST" "$DISKLESS_POOL"
 
-echo "$LINSTOR_DST"
+echo "$DST"
