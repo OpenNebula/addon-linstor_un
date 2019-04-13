@@ -57,8 +57,8 @@ LINSTOR_SRC="${XPATH_ELEMENTS[j++]}"
 SIZE="${XPATH_ELEMENTS[j++]}"
 BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
-IMAGE_NAME="${LINSTOR_SRC}"
-IMAGE_PATH="/dev/drbd/by-res/${IMAGE_NAME}/0"
+IMAGE_PATH="${LINSTOR_SRC}"
+IMAGE_NAME="$(echo "$IMAGE_PATH" | $AWK -F/ '{print $(NF-1)}')"
 
 #-------------------------------------------------------------------------------
 # Output image source and format

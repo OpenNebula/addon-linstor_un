@@ -53,7 +53,8 @@ done < <($XPATH     /DS_DRIVER_ACTION_DATA/IMAGE/SOURCE \
 
 LINSTOR_SRC="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
-IMAGE_NAME="${LINSTOR_SRC}"
+IMAGE_PATH="${LINSTOR_SRC}"
+IMAGE_NAME="$(echo "$IMAGE_PATH" | $AWK -F/ '{print $(NF-1)}')"
 
 # -------- Remove Image from Datastore ------------
 

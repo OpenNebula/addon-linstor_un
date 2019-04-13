@@ -116,11 +116,11 @@ fi
 
 SAFE_DIRS=""
 
-SRC_IMAGE_NAME="${LINSTOR_SRC}"
-SRC_IMAGE_PATH="/dev/drbd/by-res/${SRC_IMAGE_NAME}/0"
+SRC_IMAGE_PATH="${LINSTOR_SRC}"
+SRC_IMAGE_NAME="$(echo "$SRC_IMAGE_PATH" | $AWK -F/ '{print $(NF-1)}')"
 DST_IMAGE_NAME="one-${ID}"
 DST_IMAGE_PATH="/dev/drbd/by-res/${DST_IMAGE_NAME}/0"
-LINSTOR_DST="${DST_IMAGE_NAME}"
+LINSTOR_DST="${DST_IMAGE_PATH}"
 
 
 VD_DATA="$($LINSTOR -m volume-definition list)"

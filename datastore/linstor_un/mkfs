@@ -123,7 +123,7 @@ set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 
 IMAGE_NAME="one-${ID}"
 IMAGE_PATH="/dev/drbd/by-res/${IMAGE_NAME}/0"
-LINSTOR_SRC="${IMAGE_NAME}"
+LINSTOR_SRC="${IMAGE_PATH}"
 
 # ------------ Image to save_as disk, no need to create a FS ------------
 
