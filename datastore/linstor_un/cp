@@ -132,8 +132,8 @@ set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 IMAGE_HASH=`generate_image_hash`
 TMP_DST="$STAGING_DIR/$IMAGE_HASH"
 
-LINSTOR_DST="one-${ID}"
-DST="/dev/drbd/by-res/${LINSTOR_DST}/0"
+SRC_RES="one-${ID}"
+DST="/dev/drbd/by-res/${SRC_RES}/0"
 
 DOWNLOADER_ARGS=`set_downloader_args "$MD5" "$SHA1" "$NO_DECOMPRESS" "$LIMIT_TRANSFER_BW" "$SRC" -`
 
@@ -168,10 +168,10 @@ ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^v
 REGISTER_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    $LINSTOR resource-definition create "$IMAGE_NAME"
-    trap '$LINSTOR resource-definition delete "$LINSTOR_DST" --async' EXIT
-    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$LINSTOR_DST" "${ORIGINAL_SIZE_B}B"
-    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$LINSTOR_DST" 
+    $LINSTOR resource-definition create "$SRC_RES"
+    trap '$LINSTOR resource-definition delete "$SRC_RES" --async' EXIT
+    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$SRC_RES" "${ORIGINAL_SIZE_B}B"
+    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$SRC_RES" 
     trap '' EXIT
 
 EOF
@@ -190,11 +190,11 @@ IMPORT_CMD=$(cat <<EOF
 EOF
 )
 
-linstor_attach_resource "$DST_HOST" "$LINSTOR_DST" "$DISKLESS_POOL"
+linstor_attach_resource "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
 
 ssh_exec_and_log    "$DST_HOST" "$IMPORT_CMD" \
                     "Error importing $DST on $DST_HOST"
 
-linstor_detach_resource "$DST_HOST" "$LINSTOR_DST"
+linstor_detach_resource "$DST_HOST" "$SRC_RES"
 
 echo "$DST"

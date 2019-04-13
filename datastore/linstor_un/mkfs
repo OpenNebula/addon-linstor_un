@@ -121,8 +121,8 @@ fi
 
 set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 
-IMAGE_NAME="one-${ID}"
-DST="/dev/drbd/by-res/${IMAGE_NAME}/0"
+DST_RES="one-${ID}"
+DST="/dev/drbd/by-res/${DST_RES}/0"
 
 # ------------ Image to save_as disk, no need to create a FS ------------
 
@@ -138,10 +138,10 @@ MKFS_CMD=`mkfs_command ${DST} $FSTYPE $SIZE`
 REGISTER_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    $LINSTOR resource-definition create "$IMAGE_NAME"
-    trap '$LINSTOR resource-definition delete "$LINSTOR_DST" --async' EXIT
-    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$IMAGE_NAME" "${SIZE}M"
-    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$IMAGE_NAME" 
+    $LINSTOR resource-definition create "$DST_RES"
+    trap '$LINSTOR resource-definition delete "$SRC_RES" --async' EXIT
+    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$DST_RES" "${SIZE}M"
+    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$DST_RES" 
     trap '' EXIT
 
 EOF
@@ -155,12 +155,12 @@ if [ "$FSTYPE" = "raw" ]; then
     exit 0
 fi
 
-linstor_attach_resource "$DST_HOST" "$IMAGE_NAME" "$DISKLESS_POOL"
+linstor_attach_resource "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
 
 ssh_exec_and_log "$DST_HOST" "$MKFS_CMD" \
     "Unable to create filesystem $FSTYPE in $DST_HOST:$DST"
 
-linstor_detach_resource "$DST_HOST" "$IMAGE_NAME"
+linstor_detach_resource "$DST_HOST" "$DST_RES"
 
 
 echo "$DST"

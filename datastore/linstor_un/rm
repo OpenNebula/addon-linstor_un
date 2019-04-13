@@ -53,7 +53,7 @@ done < <($XPATH     /DS_DRIVER_ACTION_DATA/IMAGE/SOURCE \
 
 SRC="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
-LINSTOR_SRC="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
+SRC_RES="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
 
 # -------- Remove Image from Datastore ------------
 
@@ -61,7 +61,7 @@ log "Removing $SRC from the image repository"
 
 DELETE_CMD=$(cat <<EOF
     set -e -o pipefail
-    $LINSTOR resource-definition delete "$LINSTOR_SRC"
+    $LINSTOR resource-definition delete "$SRC_RES"
 EOF
 )
 

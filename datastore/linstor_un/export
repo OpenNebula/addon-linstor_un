@@ -57,7 +57,7 @@ SRC="${XPATH_ELEMENTS[j++]}"
 SIZE="${XPATH_ELEMENTS[j++]}"
 BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
-LINSTOR_SRC="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
+SRC_RES="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
 
 #-------------------------------------------------------------------------------
 # Output image source and format
@@ -76,7 +76,7 @@ echo "<FORMAT><![CDATA[raw]]></FORMAT>"
 EOF
 )
 
-HOST=`get_destination_host_for_res "$LINSTOR_SRC" 1`
+HOST=`get_destination_host_for_res "$SRC_RES" 1`
 SRC="ssh://$HOST:$SRC"
 INFO=$(ssh_monitor_and_log "$HOST" "$INFO_SCRIPT" "Image info script" 2>&1)
 
