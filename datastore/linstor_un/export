@@ -77,7 +77,7 @@ echo "<FORMAT><![CDATA[raw]]></FORMAT>"
 EOF
 )
 
-HOST=`get_destination_host_for_image "$IMAGE_NAME"`
+HOST=`get_destination_host_for_res "$IMAGE_NAME" 1`
 SRC="ssh://$HOST:$IMAGE_PATH"
 INFO=$(ssh_monitor_and_log "$HOST" "$INFO_SCRIPT" "Image info script" 2>&1)
 

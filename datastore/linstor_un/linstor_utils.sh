@@ -90,12 +90,16 @@ EOF
 # Gets the host contains volume to be used as bridge to talk to the storage system
 # Implements a round robin for the bridges
 #   @param $1 - the volume (to search)
-#   @param $2 - ID to be used to round-robin between host bridges. Random if
+#   @param $2 - host must contain the volume (1 - yes, 0 - no)
+#   @param $3 - ID to be used to round-robin between host bridges. Random if
 #   not defined
 #   @return host to be used as bridge
 #-------------------------------------------------------------------------------
-function get_image_host {
+function get_destination_host_for_res {
     RES="$1"
+    MUST_CONTAIN="${2:-0}"
+    RR_ID="$3"
+
     IMAGE_NODES="$($LINSTOR -m resource list -r "${RES}" | $JQ -r '.[].resources[].node_name' | xargs)"
     unset REDUCED_LIST
     for NODE in $BRIDGE_LIST; do
@@ -103,21 +107,25 @@ function get_image_host {
             REDUCED_LIST="$REDUCED_LIST $NODE"
         fi
     done
+
     REDUCED_LIST=$(remove_off_hosts "$REDUCED_LIST")
+    if [ -n "$REDUCED_LIST" ]; then
+        HOSTS_ARRAY=($REDUCED_LIST)
+        N_HOSTS=${#HOSTS_ARRAY[@]}
 
-    if [ -z "$REDUCED_LIST" ]; then
-        error_message "All hosts from 'BRIDGE_LIST' that contains $RES are offline, error or disabled"
-        exit -1
-    fi
+        if [ -n "$RR_ID" ]; then
+            ARRAY_INDEX=$(($RR_ID % ${N_HOSTS}))
+        else
+            ARRAY_INDEX=$((RANDOM % ${N_HOSTS}))
+        fi
 
-    HOSTS_ARRAY=($REDUCED_LIST)
-    N_HOSTS=${#HOSTS_ARRAY[@]}
-
-    if [ -n "$2" ]; then
-        ARRAY_INDEX=$(($2 % ${N_HOSTS}))
+        echo ${HOSTS_ARRAY[$ARRAY_INDEX]}
     else
-        ARRAY_INDEX=$((RANDOM % ${N_HOSTS}))
+        if [ "$MUST_CONTAIN" = "1" ]; then
+            error_message "All hosts from 'BRIDGE_LIST' that contains $RES are offline, error or disabled"
+            exit -1
+        else
+	    get_destination_host $RR_ID
+        fi
     fi
-
-    echo ${HOSTS_ARRAY[$ARRAY_INDEX]}
 }

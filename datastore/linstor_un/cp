@@ -182,7 +182,6 @@ multiline_exec_and_log "$REGISTER_CMD" \
 IMPORT_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    test -b "${IMAGE_PATH}"
     $QEMU_IMG convert -O raw "$TMP_DST" "$IMAGE_PATH"
 
     # remove original
