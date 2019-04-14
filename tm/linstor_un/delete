@@ -85,21 +85,6 @@ fi
 #-------------------------------------------------------------------------------
 
 DISK_ID=$(echo "$DST_PATH" | $AWK -F. '{print $NF}')
-
-unset i j XPATH_ELEMENTS
-
-while IFS= read -r -d '' element; do
-    XPATH_ELEMENTS[i++]="$element"
-done < <(onevm show -x $VM_ID | $XPATH \
-                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/CLONE)
-
-CLONE="${XPATH_ELEMENTS[j++]}"
-
-# No need to delete no cloned images
-if [ "$CLONE" = "NO" ]; then
-    exit 0
-fi
-
 DST_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
 
 #-------------------------------------------------------------------------------
