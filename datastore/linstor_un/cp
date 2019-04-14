@@ -101,31 +101,12 @@ if [ -z "$DST_HOST" ]; then
     error_message "Datastore template missing 'BRIDGE_LIST' attribute."
     exit -1
 fi
+if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then
+    error_message "Datastore template missing 'NODE_LIST' or 'AUTO_PLACE' attribute."
+    exit -1
+fi
 
-if [ -n "$LS_CONTROLLERS" ]; then
-    LINSTOR="$LINSTOR --controllers $LS_CONTROLLERS"
-fi
-if [ -n "$REPLICAS_ON_SAME" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-same $REPLICAS_ON_SAME"
-fi
-if [ -n "$REPLICAS_ON_DIFFERENT" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-different $REPLICAS_ON_DIFFERENT"
-fi
-if [ -n "$AUTO_PLACE" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --auto-place $AUTO_PLACE"
-fi
-if [ -n "$DO_NOT_PLACE_WITH" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with $DO_NOT_PLACE_WITH"
-fi
-if [ -n "$DO_NOT_PLACE_WITH_REGEX" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with-regex $DO_NOT_PLACE_WITH_REGEX"
-fi
-if [ -n "$LAYER_LIST" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --layer-list $LAYER_LIST"
-fi
-if [ "$ENCRYPTION" == "yes" ]; then
-    VOLUME_CREATE_ARGS="$VOLUME_CREATE_ARGS --encrypt"
-fi
+linstor_load_keys
 
 set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 
@@ -133,7 +114,8 @@ IMAGE_HASH=`generate_image_hash`
 TMP_DST="$STAGING_DIR/$IMAGE_HASH"
 
 SRC_RES="one-${ID}"
-DST="/dev/drbd/by-res/${SRC_RES}/0"
+DST_DEV="/dev/drbd/by-res/${SRC_RES}/0"
+DST="$DST_DEV"
 
 DOWNLOADER_ARGS=`set_downloader_args "$MD5" "$SHA1" "$NO_DECOMPRESS" "$LIMIT_TRANSFER_BW" "$SRC" -`
 
@@ -165,36 +147,23 @@ multiline_exec_and_log "set -e -o pipefail; $DUMP | $SSH $DST_HOST $DD of=$TMP_D
 
 ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
 
-REGISTER_CMD=$(cat <<EOF
-    set -e -o pipefail
-
-    $LINSTOR resource-definition create "$SRC_RES"
-    trap '$LINSTOR resource-definition delete "$SRC_RES" --async' EXIT
-    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$SRC_RES" "${ORIGINAL_SIZE_B}B"
-    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$SRC_RES" 
-    trap '' EXIT
-
-EOF
-)
-
-multiline_exec_and_log "$REGISTER_CMD" \
-                    "Error registering $DST"
+linstor_deploy_volume "$SRC_RES" "${ORIGINAL_SIZE_B}B"
 
 IMPORT_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    $QEMU_IMG convert -O raw "$TMP_DST" "$DST"
+    $QEMU_IMG convert -O raw "$TMP_DST" "$DST_DEV"
 
     # remove original
     $RM -f $TMP_DST
 EOF
 )
 
-linstor_attach_resource "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
+linstor_attach_volume "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
 
 ssh_exec_and_log    "$DST_HOST" "$IMPORT_CMD" \
-                    "Error importing $DST on $DST_HOST"
+                    "Error importing $DST_DEV on $DST_HOST"
 
-linstor_detach_resource "$DST_HOST" "$SRC_RES"
+linstor_detach_volume "$DST_HOST" "$SRC_RES" 1
 
 echo "$DST"

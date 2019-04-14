@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 ###############################################################################
-# This script is used to create a VM image (SRC) of size (SIZE) and formatted
+# This script is used to create a VM image (DST) of size (SIZE) and formatted
 # as (FS)
 ###############################################################################
 
@@ -93,36 +93,18 @@ if [ -z "$DST_HOST" ]; then
     error_message "Datastore template missing 'BRIDGE_LIST' attribute."
     exit -1
 fi
+if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then
+    error_message "Datastore template missing 'NODE_LIST' or 'AUTO_PLACE' attribute."
+    exit -1
+fi
 
-if [ -n "$LS_CONTROLLERS" ]; then
-    LINSTOR="$LINSTOR --controllers $LS_CONTROLLERS"
-fi
-if [ -n "$REPLICAS_ON_SAME" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-same $REPLICAS_ON_SAME"
-fi
-if [ -n "$REPLICAS_ON_DIFFERENT" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --replicas-on-different $REPLICAS_ON_DIFFERENT"
-fi
-if [ -n "$AUTO_PLACE" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --auto-place $AUTO_PLACE"
-fi
-if [ -n "$DO_NOT_PLACE_WITH" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with $DO_NOT_PLACE_WITH"
-fi
-if [ -n "$DO_NOT_PLACE_WITH_REGEX" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --do-not-place-with-regex $DO_NOT_PLACE_WITH_REGEX"
-fi
-if [ -n "$LAYER_LIST" ]; then
-    RESOURCE_CREATE_ARGS="$RESOURCE_CREATE_ARGS --layer-list $LAYER_LIST"
-fi
-if [ "$ENCRYPTION" == "yes" ]; then
-    VOLUME_CREATE_ARGS="$VOLUME_CREATE_ARGS --encrypt"
-fi
+linstor_load_keys
 
 set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 
 DST_RES="one-${ID}"
-DST="/dev/drbd/by-res/${DST_RES}/0"
+DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
+DST="$DST_DEV"
 
 # ------------ Image to save_as disk, no need to create a FS ------------
 
@@ -133,34 +115,21 @@ fi
 
 # ------------ Create the image in the repository ------------
 
-MKFS_CMD=`mkfs_command ${DST} $FSTYPE $SIZE`
+MKFS_CMD=`mkfs_command ${DST_DEV} $FSTYPE $SIZE`
 
-REGISTER_CMD=$(cat <<EOF
-    set -e -o pipefail
-
-    $LINSTOR resource-definition create "$DST_RES"
-    trap '$LINSTOR resource-definition delete "$SRC_RES" --async' EXIT
-    $LINSTOR volume-definition create $VOLUME_DEFINITION_CREATE_ARGS "$DST_RES" "${SIZE}M"
-    $LINSTOR resource create $RESOURCE_CREATE_ARGS --storage-pool "$STORAGE_POOL" $NODE_LIST "$DST_RES" 
-    trap '' EXIT
-
-EOF
-)
-
-multiline_exec_and_log "$REGISTER_CMD" \
-                    "Error registering $DST"
+linstor_deploy_volume "$DST_RES" "${SIZE}M"
 
 if [ "$FSTYPE" = "raw" ]; then
     echo "$DST"
     exit 0
 fi
 
-linstor_attach_resource "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
+linstor_attach_volume "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
 
 ssh_exec_and_log "$DST_HOST" "$MKFS_CMD" \
-    "Unable to create filesystem $FSTYPE in $DST_HOST:$DST"
+    "Unable to create filesystem $FSTYPE in $DST_HOST:$DST_DEV"
 
-linstor_detach_resource "$DST_HOST" "$DST_RES"
+linstor_detach_volume "$DST_HOST" "$DST_RES" 1
 
 
 echo "$DST"

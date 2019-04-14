@@ -56,14 +56,12 @@ BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
 STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 
-if [ -n "${LS_CONTROLLERS}" ]; then
-    LINSTOR="$LINSTOR --controllers ${LS_CONTROLLERS}"
-fi
+linstor_load_keys
 
 # ------------ Compute datastore usage -------------
 
 MONITOR_SCRIPT=$(cat <<EOF
-$LINSTOR -m storage-pool list --storpools "$STORAGE_POOL"
+    $LINSTOR -m storage-pool list --storpools "$STORAGE_POOL"
 EOF
 )
 
