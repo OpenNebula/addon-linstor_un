@@ -85,7 +85,7 @@ SRC="${XPATH_ELEMENTS[j++]}"
 SIZE="${XPATH_ELEMENTS[j++]}"
 
 SRC_RES="$(echo "$SRC" | $AWK -F/ '{print $(NF-1)}')"
-DST_RES="one-${ID}"
+DST_RES="one-image-${ID}"
 DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 DST="$DST_DEV"
 

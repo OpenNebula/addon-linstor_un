@@ -113,7 +113,7 @@ set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 IMAGE_HASH=`generate_image_hash`
 TMP_DST="$STAGING_DIR/$IMAGE_HASH"
 
-SRC_RES="one-${ID}"
+SRC_RES="one-image-${ID}"
 DST_DEV="/dev/drbd/by-res/${SRC_RES}/0"
 DST="$DST_DEV"
 

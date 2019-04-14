@@ -56,7 +56,7 @@ DST_DIR=`dirname $DST_PATH`
 DST_DS_ID=$(echo $DST_DIR | $AWK -F/ '{print $(NF-1)}')
 
 DISK_ID=$(echo $DST | awk -F. '{print $NF}')
-DST_RES="${SRC_RES}-${VM_ID}-${DISK_ID}"
+DST_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
 DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 
 #-------------------------------------------------------------------------------
