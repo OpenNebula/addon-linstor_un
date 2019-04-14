@@ -66,9 +66,8 @@ LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
 
 linstor_load_keys
 
-
 #-------------------------------------------------------------------------------
-# Get Image information & destination image
+# Get Image information
 #-------------------------------------------------------------------------------
 
 SRC_PATH=`arg_path $SRC`
@@ -83,6 +82,10 @@ LINK_CMD=$(cat <<EOF
     ln -s $SRC_PATH $DST_PATH
 EOF
 )
+
+#-------------------------------------------------------------------------------
+# Link the image
+#-------------------------------------------------------------------------------
 
 linstor_attach_volume "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
 

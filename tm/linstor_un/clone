@@ -113,7 +113,7 @@ DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 
 #-------------------------------------------------------------------------------
-# Clone the image and create @snap if it does not exists
+# Clone the image
 #-------------------------------------------------------------------------------
 
 SRC_HOST=`linstor_get_host_for_res "$SRC_RES" 1`
