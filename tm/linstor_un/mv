@@ -16,16 +16,17 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-# clone fe:SOURCE host:remote_system_ds/disk.i size
-#   - fe is the front-end hostname
-#   - SOURCE is the path of the disk image in the form DS_BASE_PATH/disk
-#   - host is the target host to deploy the VM
-#   - remote_system_ds is the path for the system datastore in the host
+# MV <hostA:system_ds/disk.i|hostB:system_ds/disk.i> vmid dsid
+#    <hostA:system_ds/|hostB:system_ds/>
+#   - hostX is the target host to deploy the VM
+#   - system_ds is the path for the system datastore in the host
+#   - vmid is the id of the VM
+#   - dsid is the target datastore (0 is the system datastore)
 
 SRC=$1
 DST=$2
-VM_ID=$3
-DS_ID=$4
+VMID=$3
+DSID=$4
 
 #--------------------------------------------------------------------------------
 
@@ -39,26 +40,12 @@ fi
 
 DRIVER_PATH=$(dirname $0)
 
+source ${DRIVER_PATH}/../../etc/tm/fs_lvm/fs_lvm.conf
+
 source $TMCOMMON
 source ${DRIVER_PATH}/../../datastore/libfs.sh
 source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
 source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
-
-#-------------------------------------------------------------------------------
-# Compute the destination image name
-#-------------------------------------------------------------------------------
-
-SRC_PATH=`arg_path $SRC`
-SRC_RES="$(echo "$SRC_PATH" | $AWK -F/ '{print $(NF-1)}')"
-
-DST_HOST=`arg_host $DST`
-DST_PATH=`arg_path $DST`
-DST_DIR=`dirname $DST_PATH`
-DST_DS_ID=$(echo $DST_DIR | $AWK -F/ '{print $(NF-1)}')
-
-DISK_ID=$(echo $DST | awk -F. '{print $NF}')
-DST_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
-DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 
 #-------------------------------------------------------------------------------
 # Get Image information
@@ -69,23 +56,8 @@ XPATH="${DRIVER_PATH}/../../datastore/xpath.rb --stdin"
 unset i j XPATH_ELEMENTS
 
 while IFS= read -r -d '' element; do
-        XPATH_ELEMENTS[i++]="$element"
-done < <(onevm show -x $VM_ID| $XPATH  \
-                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/SIZE \
-                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/ORIGINAL_SIZE)
-
-SIZE="${XPATH_ELEMENTS[j++]}"
-ORIGINAL_SIZE="${XPATH_ELEMENTS[j++]}"
-
-#-------------------------------------------------------------------------------
-# Get Datastore information
-#-------------------------------------------------------------------------------
-
-unset i j XPATH_ELEMENTS
-
-while IFS= read -r -d '' element; do
-        XPATH_ELEMENTS[i++]="$element"
-done < <(onedatastore show -x $DST_DS_ID | $XPATH \
+    XPATH_ELEMENTS[i++]="$element"
+done < <(onedatastore show -x $DSID | $XPATH \
                     /DATASTORE/TEMPLATE/BRIDGE_LIST \
                     /DATASTORE/TEMPLATE/LS_CONTROLLERS \
                     /DATASTORE/TEMPLATE/NODE_LIST \
@@ -112,52 +84,75 @@ STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 
-#-------------------------------------------------------------------------------
-# Clone the image
-#-------------------------------------------------------------------------------
-
-SRC_HOST=`linstor_get_host_for_res "$SRC_RES" 1`
-if [ -z "$SRC_HOST" ]; then
-    error_message "Datastore template missing 'BRIDGE_LIST' attribute."
-    exit -1
-fi
-if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then
-    error_message "Datastore template missing 'NODE_LIST' or 'AUTO_PLACE' attribute."
-    exit -1
-fi
-if [ -z "$STORAGE_POOL" ]; then
-    error_message "Datastore template missing 'STORAGE_POOL' attribute."
-    exit -1
-fi
-
 linstor_load_keys
 
-linstor_deploy_volume "$DST_RES" "${SIZE}M"
+SRC_PATH=`arg_path $SRC`
+DST_PATH=`arg_path $DST`
 
-linstor_attach_volume "$SRC_HOST" "$SRC_RES" "$DISKLESS_POOL"
-linstor_attach_volume "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"
+SRC_HOST=`arg_host $SRC`
+DST_HOST=`arg_host $DST`
 
-CLONE_CMD=$(cat <<EOF
-    set -e -o pipefail
-    $QEMU_IMG convert -O raw "$SRC_PATH" "$DST_DEV"
+SRC_DIR=`dirname $SRC_PATH`
+DST_DIR=`dirname $DST_PATH`
+
+# Activate the disk in the target host
+if [ `is_disk $SRC_PATH` -eq 1 ]; then
+    #---------------------------------------------------------------------------
+    # Get Image information
+    #---------------------------------------------------------------------------
+
+    DISK_ID=$(echo $SRC | $AWK -F. '{print $NF}')
+
+    SRC_DS_SYS_ID=$(echo $SRC_DIR | $AWK -F '/' '{print $(NF-1)}')
+    DST_DS_SYS_ID=$(echo $DST_DIR | $AWK -F '/' '{print $(NF-1)}')
+    SRC_RES="one-vm-${VMID}-disk-${DISK_ID}"
+    DST_RES="one-vm-${VMID}-disk-${DISK_ID}"
+    SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
+    DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
+
+    unset i j XPATH_ELEMENTS
+
+    while IFS= read -r -d '' element; do
+        XPATH_ELEMENTS[i++]="$element"
+    done < <(onevm show -x $VMID | $XPATH  \
+                        /VM/LCM_STATE )
+
+    LCM_STATE="${XPATH_ELEMENTS[j++]}"
+
+    # for stop + undeploy operation just detach the volume
+    if [[ "$LCM_STATE" =~ ^(10|30|41|42)$ ]]; then
+        linstor_detach_volume "$SRC_HOST" "$SRC_RES" 1
+        ssh_exec_and_log "$SRC_HOST" "rm -f $SRC_PATH" \
+                         "Error unlinking $SRC_PATH on $SRC_HOST"
+        exit 0
+    fi
+
+    # copy volume between datastores
+    if [ "${SRC_PATH}" != "${DST_PATH}" ]; then
+        # TODO: implement copying between datastores
+        error_message "Copying between datastores not implemented yet"
+        exit -1
+    fi
+
+    LINK_CMD=$(cat <<EOF
+        set -e -o pipefail
+        mkdir -p $DST_DIR
+        rm -f $DST_PATH
+        ln -s $DST_DEV $DST_PATH
 EOF
-)
+    )
 
-ssh_exec_and_log "$SRC_HOST" "$CLONE_CMD" \
-                 "Error cloning $SRC_RES to $DST_RES on $SRC_HOST"
+    linstor_attach_volume "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
+    ssh_exec_and_log "$DST_HOST" "$LINK_CMD" \
+                     "Error linking $DST_DEV to $DST_PATH on $DST_HOST"
+    exit 0
+fi
 
-linstor_detach_volume "$SRC_HOST" "$SRC_RES" 1
-linstor_detach_volume "$SRC_HOST" "$DST_RES" 1
+# Return if the target path is the same as the source path. No need to move
+# anything. This is *not* a system ds migration.
+if [ "$SRC_PATH" == "$DST_PATH" ]; then
+    exit 0
+fi
 
-LINK_CMD=$(cat <<EOF
-    set -e -o pipefail
-    mkdir -p $DST_DIR
-    rm -f $DST_PATH
-    ln -s $DST_DEV $DST_PATH
-EOF
-)
-
-linstor_attach_volume "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
-
-ssh_exec_and_log "$DST_HOST" "$LINK_CMD" \
-                 "Error linking $DST_DEV to $DST_PATH on $DST_HOST"
+ssh_exec_and_log "$DST_HOST" "mv $SRC_PATH $DST_PATH" \
+    "Error moving VM files to another System DS: $SRC_PATH to $DST_PATH in $DST_HOST"
