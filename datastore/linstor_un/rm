@@ -62,11 +62,5 @@ linstor_load_keys
 
 log "Removing $SRC from the image repository"
 
-DELETE_CMD=$(cat <<EOF
-    set -e -o pipefail
-    $LINSTOR resource-definition delete $SRC_RES
-EOF
-)
-
-multiline_exec_and_log "$DELETE_CMD" \
-                 "Error deleting $SRC_RES"
+exec_and_log "$LINSTOR resource-definition delete $SRC_RES" \
+             "Error deleting $SRC_RES"
