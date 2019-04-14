@@ -78,10 +78,16 @@ echo "<FORMAT><![CDATA[raw]]></FORMAT>"
 EOF
 )
 
+SRC_HOST=`linstor_get_host_for_res "$SRC_RES" 0`
+if [ -z "$SRC_HOST" ]; then
+    error_message "Datastore template missing 'BRIDGE_LIST' attribute."
+    exit -1
+fi
+
 linstor_load_keys
-HOST=`get_destination_host_for_res "$SRC_RES" 1`
-SRC="ssh://$HOST:$SRC_DEV"
-INFO=$(ssh_monitor_and_log "$HOST" "$INFO_SCRIPT" "Image info script" 2>&1)
+
+SRC="ssh://$SRC_HOST:$SRC_DEV"
+INFO=$(ssh_monitor_and_log "$SRC_HOST" "$INFO_SCRIPT" "Image info script" 2>&1)
 
 INFO_STATUS=$?
 

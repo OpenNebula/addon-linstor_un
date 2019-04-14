@@ -175,7 +175,7 @@ EOF
 #   not defined
 #   @return host to be used as bridge
 #-------------------------------------------------------------------------------
-function get_destination_host_for_res {
+function linstor_get_host_for_res {
     local RES="$1"
     local MUST_CONTAIN="${2:-0}"
     local RR_ID="$3"

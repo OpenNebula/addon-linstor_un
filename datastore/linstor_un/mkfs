@@ -97,6 +97,10 @@ if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then
     error_message "Datastore template missing 'NODE_LIST' or 'AUTO_PLACE' attribute."
     exit -1
 fi
+if [ -z "$STORAGE_POOL" ]; then
+    error_message "Datastore template missing 'STORAGE_POOL' attribute."
+    exit -1
+fi
 
 linstor_load_keys
 

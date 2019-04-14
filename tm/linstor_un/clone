@@ -40,6 +40,7 @@ fi
 DRIVER_PATH=$(dirname $0)
 
 source $TMCOMMON
+source ${DRIVER_PATH}/../../datastore/libfs.sh
 source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
 source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
 
@@ -87,6 +88,7 @@ unset i j XPATH_ELEMENTS
 while IFS= read -r -d '' element; do
         XPATH_ELEMENTS[i++]="$element"
 done < <(onedatastore show -x $DST_DS_ID | $XPATH \
+                    /DATASTORE/TEMPLATE/BRIDGE_LIST \
                     /DATASTORE/TEMPLATE/LS_CONTROLLERS \
                     /DATASTORE/TEMPLATE/NODE_LIST \
                     /DATASTORE/TEMPLATE/LAYER_LIST \
@@ -99,6 +101,7 @@ done < <(onedatastore show -x $DST_DS_ID | $XPATH \
                     /DATASTORE/TEMPLATE/DISKLESS_POOL \
                     /DATASTORE/TEMPLATE/ENCRYPTION)
 
+BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
 NODE_LIST="${XPATH_ELEMENTS[j++]}"
 LAYER_LIST="${XPATH_ELEMENTS[j++]}"
@@ -115,8 +118,17 @@ ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 # Clone the image and create @snap if it does not exists
 #-------------------------------------------------------------------------------
 
+SRC_HOST=`linstor_get_host_for_res "$SRC_RES" 1`
+if [ -z "$SRC_HOST" ]; then
+    error_message "Datastore template missing 'BRIDGE_LIST' attribute."
+    exit -1
+fi
 if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then
     error_message "Datastore template missing 'NODE_LIST' or 'AUTO_PLACE' attribute."
+    exit -1
+fi
+if [ -z "$STORAGE_POOL" ]; then
+    error_message "Datastore template missing 'STORAGE_POOL' attribute."
     exit -1
 fi
 
@@ -124,22 +136,30 @@ linstor_load_keys
 
 linstor_deploy_volume "$DST_RES" "${SIZE}M"
 
-linstor_attach_volume "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
-linstor_attach_volume "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
+linstor_attach_volume "$SRC_HOST" "$SRC_RES" "$DISKLESS_POOL"
+linstor_attach_volume "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"
 
 CLONE_CMD=$(cat <<EOF
     set -e -o pipefail
-    mkdir -p "$DST_DIR"
-
     $QEMU_IMG convert -O raw "$SRC_PATH" "$DST_DEV"
-    rm -f "$DST_PATH"
-    ln -s "$DST_DEV" "$DST_PATH"
 EOF
 )
 
-ssh_exec_and_log "$DST_HOST" "$CLONE_CMD" \
-                 "Error cloning $SRC_PATH to $DST_PATH on $DST_HOST"
+ssh_exec_and_log "$SRC_HOST" "$CLONE_CMD" \
+                 "Error cloning $SRC_RES to $DST_RES on $SRC_HOST"
 
-linstor_detach_volume "$DST_HOST" "$SRC_RES" 1
+linstor_detach_volume "$SRC_HOST" "$SRC_RES" 1
+linstor_detach_volume "$SRC_HOST" "$DST_RES" 1
 
-exit 0
+LINK_CMD=$(cat <<EOF
+    set -e -o pipefail
+    mkdir -p $DST_DIR
+    rm -f $DST_PATH
+    ln -s $DST_DEV $DST_PATH
+EOF
+)
+
+linstor_attach_volume "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
+
+ssh_exec_and_log "$DST_HOST" "$LINK_CMD" \
+                 "Error linking $DST_DEV to $DST_PATH on $DST_HOST"

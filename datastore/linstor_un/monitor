@@ -56,6 +56,11 @@ BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
 STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 
+if [ -z "$STORAGE_POOL" ]; then
+    error_message "Datastore template missing 'STORAGE_POOL' attribute."
+    exit -1
+fi
+
 linstor_load_keys
 
 # ------------ Compute datastore usage -------------

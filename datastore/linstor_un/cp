@@ -105,6 +105,10 @@ if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then
     error_message "Datastore template missing 'NODE_LIST' or 'AUTO_PLACE' attribute."
     exit -1
 fi
+if [ -z "$STORAGE_POOL" ]; then
+    error_message "Datastore template missing 'STORAGE_POOL' attribute."
+    exit -1
+fi
 
 linstor_load_keys
 
@@ -152,7 +156,7 @@ linstor_deploy_volume "$SRC_RES" "${ORIGINAL_SIZE_B}B"
 IMPORT_CMD=$(cat <<EOF
     set -e -o pipefail
 
-    $QEMU_IMG convert -O raw "$TMP_DST" "$DST_DEV"
+    $QEMU_IMG convert -O raw $TMP_DST $DST_DEV
 
     # remove original
     $RM -f $TMP_DST

@@ -64,7 +64,7 @@ log "Removing $SRC from the image repository"
 
 DELETE_CMD=$(cat <<EOF
     set -e -o pipefail
-    $LINSTOR resource-definition delete "$SRC_RES"
+    $LINSTOR resource-definition delete $SRC_RES
 EOF
 )
 
