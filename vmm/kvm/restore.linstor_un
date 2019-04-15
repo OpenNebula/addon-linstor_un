@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2019, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+DRIVER_PATH=$(dirname $0)
+
+SRC_PATH=$1
+DST_HOST=$2
+DEPLOY_ID=$3
+VM_ID=$4
+
+DRV_ACTION=$(cat)
+
+#-------------------------------------------------------------------------------
+
+source $(dirname $0)/../../scripts_common.sh
+
+XPATH="${DRIVER_PATH}/../../datastore/xpath.rb --stdin"
+
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <(echo "$DRV_ACTION" | base64 -d | $XPATH \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TM_MAD \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/RESTRICTED_DIRS \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/BRIDGE_LIST \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/STAGING_DIR \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/NODE_LIST \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/LAYER_LIST \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/REPLICAS_ON_SAME \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/REPLICAS_ON_DIFFERENT \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/AUTO_PLACE \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH_REGEX \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/STORAGE_POOL \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DISKLESS_POOL \
+		    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/ENCRYPTION)
+
+TM_MAD="${XPATH_ELEMENTS[j++]}"
+RESTRICTED_DIRS="${XPATH_ELEMENTS[j++]}"
+BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
+STAGING_DIR="${XPATH_ELEMENTS[j++]:-$STAGING_DIR}"
+LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+NODE_LIST="${XPATH_ELEMENTS[j++]}"
+LAYER_LIST="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_SAME="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_DIFFERENT="${XPATH_ELEMENTS[j++]}"
+AUTO_PLACE="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
+STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
+DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
+ENCRYPTION="${XPATH_ELEMENTS[j++]}"
+
+if [ "$TM_MAD" != "linstor_un" ]; then
+    if [ -f "${DRIVER_PATH}/restore.${TM_MAD}" ]; then
+        echo "$DRV_ACTION" | $SSH "$DST_HOST" /var/tmp/one/vmm/kvm/restore.${TM_MAD} "$@"
+    else
+        echo "$DRV_ACTION" | $SSH "$DST_HOST" /var/tmp/one/vmm/kvm/restore "$@"
+    fi
+    exit $?
+fi
+
+
+source ${DRIVER_PATH}/../../datastore/libfs.sh
+source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
+source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
+
+linstor_load_keys
+
+echo "Not implemented"
+
+exit 1
