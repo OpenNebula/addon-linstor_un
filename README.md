@@ -62,3 +62,31 @@ DS_MAD_CONF = [
     MARKETPLACE_ACTIONS = "export"
 ]
 ```
+
+## Configuration
+
+Example images datastore:
+
+```
+NAME="linstor-images"
+TYPE="IMAGE_DS"
+STORAGE_POOL="data"
+AUTO_PLACE="2"
+BRIDGE_LIST="node1 node2 node3"
+DISK_TYPE="BLOCK"
+DS_MAD="linstor_un"
+TM_MAD="linstor_un"
+```
+
+Example system datastore:
+
+```
+NAME="linstor-system"
+TYPE="SYSTEM_DS"
+STORAGE_POOL="data"
+AUTO_PLACE="2"
+CHECKPOINT_AUTO_PLACE="1"
+BRIDGE_LIST="node1 node2 node3"
+DISK_TYPE="BLOCK"
+TM_MAD="linstor_un"
+```
