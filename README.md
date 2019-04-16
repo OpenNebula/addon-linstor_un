@@ -1,5 +1,10 @@
 # Unofficial Linstor Storage Driver
 
+## Requirements
+
+* Installed `jq` and `linstor` on the OpenNebula frontend.
+* Configured linstor cluster
+
 ## Installation
 
 * Copy [vmm overriders](vmm/kvm) to `/var/lib/one/remotes/vmm/kvm/`
