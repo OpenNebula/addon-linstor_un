@@ -18,9 +18,9 @@
 
 DRIVER_PATH=$(dirname $0)
 
-DEPLOY_ID=$1
-DST_PATH=$2
-SRC_HOST=$3
+SRC_PATH=$1
+DST_HOST=$2
+DEPLOY_ID=$3
 VM_ID=$4
 
 DRV_ACTION=$(cat)
@@ -68,21 +68,64 @@ STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 
+#-------------------------------------------------------------------------------
+
 if [ "$TM_MAD" != "linstor_un" ]; then
-    if [ -f "${DRIVER_PATH}/save.${TM_MAD}" ]; then
-        echo "$DRV_ACTION" | $SSH "$DST_HOST" /var/tmp/one/vmm/kvm/restore.${TM_MAD} "$@"
-    else
-        echo "$DRV_ACTION" | $SSH "$DST_HOST" /var/tmp/one/vmm/kvm/restore "$@"
-    fi
+    echo "$DRV_ACTION" | $SSH "$DST_HOST" /var/tmp/one/vmm/kvm/restore "$@"
     exit $?
 fi
 
+#-------------------------------------------------------------------------------
+
+source ${DRIVER_PATH}/../../etc/vmm/kvm/kvmrc
 source ${DRIVER_PATH}/../../datastore/libfs.sh
 source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
 source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
 
 linstor_load_keys
 
-echo "Not implemented"
+SRC_XML=${SRC_PATH}.xml
+DS_ID=$(echo $SRC_PATH | $AWK -F/ '{print $(NF-2)}')
+DS_LOCATION=$(echo $SRC_PATH | $SED 's|\(/[^/]*\)\{2\}$||g')
+DS_LOCATION_NON_DOUBLE_SLASH=$(echo "$DS_LOCATION" | $SED 's|//|/|g')
 
-exit 1
+RECALCULATE_CMD=$(cat <<EOF
+set -e -o pipefail
+
+# extract the xml from the checkpoint
+
+virsh --connect $LIBVIRT_URI save-image-dumpxml $SRC_PATH > $SRC_XML
+
+# Eeplace all occurrences of the DS_LOCATION/<DS_ID>/<VM_ID> with the specific
+# DS_ID where the checkpoint is placed. This is done in case there was a
+# system DS migration
+
+sed -i "s%$DS_LOCATION/[0-9]\+/$VM_ID/%$DS_LOCATION/$DS_ID/$VM_ID/%g" $SRC_XML
+sed -i "s%$DS_LOCATION_NON_DOUBLE_SLASH/[0-9]\+/$VMID/%$DS_LOCATION/$DS_ID/$VMID/%g" $SRC_XML
+EOF
+)
+
+ssh_exec_and_log "$DST_HOST" "$RECALCULATE_CMD" \
+    "Could not recalculate paths in $SRC_XML on $DST_HOST"
+
+### Restore with retry
+
+# On RHEL/CentOS 7 with qemu-kvm (1.5), it may happen the QEMU
+# segfaults on the very first try to restore from checkpoint.
+# We retry 3 times before failing completely.
+
+function restore_domain {
+    ssh_exec_and_log "$DST_HOST" "virsh --connect $LIBVIRT_URI restore $SRC_PATH --xml $SRC_XML" \
+        "Could not restore from $SRC_PATH on $DST_HOST"
+}
+
+retry 3 restore_domain
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+ssh_exec_and_log_no_error "$DST_HOST" "rm $SRC_PATH $SRC_XML" \
+    "Could not remove $SRC_PATH or $SRC_XML on $DST_HOST"
+
+exit 0
