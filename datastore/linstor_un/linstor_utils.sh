@@ -209,3 +209,20 @@ function linstor_get_host_for_res {
         fi
     fi
 }
+
+
+#-------------------------------------------------------------------------------
+# Gets the resources list used for the virtual machine
+#   @param $1 - the vmid (to search)
+#   @return list of resources belongs to the VM
+#-------------------------------------------------------------------------------
+function linstor_get_res_for_vmid {
+    local VMID="$1"
+    local RD_DATA="$($LINSTOR -m resource-definition list)"
+    if [ $? -ne 0 ]; then
+        echo "Error getting resource-definition list"
+        exit -1
+    fi
+
+    echo "$RD_DATA" | $JQ -r ".[].rsc_dfns[].rsc_name | select(. | test(\"^one-vm-${VMID}-disk-[0-9]+$\"))"
+}
