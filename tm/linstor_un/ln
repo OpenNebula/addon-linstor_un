@@ -33,10 +33,8 @@ DS_ID=$4
 
 if [ -z "${ONE_LOCATION}" ]; then
     TMCOMMON=/var/lib/one/remotes/tm/tm_common.sh
-    LIB_LOCATION=/usr/lib/one
 else
     TMCOMMON=$ONE_LOCATION/var/remotes/tm/tm_common.sh
-    LIB_LOCATION=$ONE_LOCATION/lib
 fi
 
 DRIVER_PATH=$(dirname $0)
