@@ -101,12 +101,28 @@ if [ `is_disk $SRC_PATH` -eq 1 ]; then
 
     DISK_ID=$(echo $SRC | $AWK -F. '{print $NF}')
 
+    unset i j XPATH_ELEMENTS
+
+    while IFS= read -r -d '' element; do
+        XPATH_ELEMENTS[i++]="$element"
+    done < <(onevm show -x $VMID| $XPATH \
+                        /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/SOURCE \
+                        /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/CLONE)
+
+    SRC_DEV="${XPATH_ELEMENTS[j++]}"
+    CLONE="${XPATH_ELEMENTS[j++]}"
+
+    if [ "$CLONE" = "NO" ]; then
+        SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
+    else
+        SRC_RES="one-vm-${VMID}-disk-${DISK_ID}"
+        SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
+    fi
+
+    DST_RES="$SRC_RES"
+    DST_DEV="$SRC_DEV"
     SRC_DS_SYS_ID=$(echo $SRC_DIR | $AWK -F '/' '{print $(NF-1)}')
     DST_DS_SYS_ID=$(echo $DST_DIR | $AWK -F '/' '{print $(NF-1)}')
-    SRC_RES="one-vm-${VMID}-disk-${DISK_ID}"
-    DST_RES="one-vm-${VMID}-disk-${DISK_ID}"
-    SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
-    DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 
     unset i j XPATH_ELEMENTS
 
