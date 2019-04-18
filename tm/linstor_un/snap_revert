@@ -58,9 +58,11 @@ unset i j XPATH_ELEMENTS
 while IFS= read -r -d '' element; do
     XPATH_ELEMENTS[i++]="$element"
 done < <(onedatastore show -x $DS_ID | $XPATH \
-                    /DATASTORE/TEMPLATE/LS_CONTROLLERS)
+                    /DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /DATASTORE/TEMPLATE/DISKLESS_POOL)
 
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 
 linstor_load_keys
 
@@ -85,7 +87,7 @@ else
 fi
 
 #-------------------------------------------------------------------------------
-# Revert to Snapshot
+# Revert to last snapshot
 #-------------------------------------------------------------------------------
 
 SNAPSHOT="snapshot-${SNAP_ID}"
@@ -96,5 +98,21 @@ if [ "$SNAP_ID" = "$LAST_SNAP_ID" ]; then
     exit 0
 fi
 
-error_message "Rollback is only allowed with the most recent snapshot"
-exit -1
+#-------------------------------------------------------------------------------
+# Revert to previous snapshots
+#-------------------------------------------------------------------------------
+
+TMP_RES="${SRC_RES}-tmp"
+TMP_DEV="/dev/drbd/by-res/${TMP_RES}/0"
+
+linstor_deploy_snapshot "$SRC_RES" "$SNAPSHOT" "$TMP_RES"
+
+linstor_attach_volume "$SRC_HOST" "$TMP_RES" "$DISKLESS_POOL"
+
+ssh_exec_and_log "$SRC_HOST" "$QEMU_IMG convert -O raw $TMP_DEV $SRC_DEV" \
+                 "Error cloning $TMP_DEV to $SRC_DEV on $SRC_HOST"
+
+exec_and_log "$LINSTOR resource-definition delete $TMP_RES" \
+             "Error deleting $TMP_RES"
+
+exit 0

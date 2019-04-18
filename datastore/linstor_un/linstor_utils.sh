@@ -112,10 +112,37 @@ EOF
 )
 
     multiline_exec_and_log "$REGISTER_CMD" \
-                    "Error registering $DST"
+                    "Error registering $DST_RES"
 
 
 }
+
+#--------------------------------------------------------------------------------
+# Deploy snapshopt from volume as new resource on linstor
+#   @param $1 source resource name
+#   @param $2 snapshot name
+#   @param $3 destination resource name
+#--------------------------------------------------------------------------------
+linstor_deploy_snapshot() {
+    local SRC_RES="$1"
+    local SNAPSHOT="$2"
+    local DST_RES="$3"
+
+    local REGISTER_CMD=$(cat <<EOF
+        set -e -o pipefail
+
+        $LINSTOR resource-definition create $DST_RES
+        trap '$LINSTOR resource-definition delete $DST_RES --async' EXIT
+        $LINSTOR snapshot volume-definition restore --from-resource $SRC_RES --from-snapshot $SNAPSHOT --to-resource $DST_RES
+        $LINSTOR snapshot resource restore --from-resource $SRC_RES --from-snapshot $SNAPSHOT --to-resource $DST_RES
+        trap '' EXIT
+EOF
+)
+
+    multiline_exec_and_log "$REGISTER_CMD" \
+                    "Error registering $DST_RES"
+}
+
 
 #--------------------------------------------------------------------------------
 # Attach diskless resource to the node if not exist
@@ -129,7 +156,7 @@ linstor_attach_volume() {
     local DISKLESS_POOL="${3:-DfltDisklessStorPool}"
     local ATTACH_CMD=$(cat <<EOF
         set -e -o pipefail
-    
+
         CREATED_RES=\$($LINSTOR -m resource list -r "$RES" -n "$NODE" | $JQ -r '.[].resources[].name')
         if [ -z "\$CREATED_RES"]; then
             $LINSTOR resource create -s "$DISKLESS_POOL" "$NODE" "$RES" 
