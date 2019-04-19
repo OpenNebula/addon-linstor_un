@@ -1,0 +1,168 @@
+#!/bin/bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2019, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# cpds host:remote_system_ds/disk.i fe:SOURCE snapid vmid dsid
+#   - fe is the front-end hostname
+#   - SOURCE is the path of the disk image in the form DS_BASE_PATH/disk
+#   - host is the target host to deploy the VM
+#   - remote_system_ds is the path for the system datastore in the host
+#   - snapid is the snapshot id. "-1" for none
+
+SRC=$1
+DST=$2
+SNAP_ID=$3
+VM_ID=$4
+DS_ID=$5
+
+#--------------------------------------------------------------------------------
+
+if [ -z "${ONE_LOCATION}" ]; then
+    TMCOMMON=/var/lib/one/remotes/tm/tm_common.sh
+else
+    TMCOMMON=$ONE_LOCATION/var/remotes/tm/tm_common.sh
+fi
+
+DRIVER_PATH=$(dirname $0)
+
+source $TMCOMMON
+source ${DRIVER_PATH}/../../datastore/libfs.sh
+source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
+source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
+
+#-------------------------------------------------------------------------------
+# Set dst path and dir
+#-------------------------------------------------------------------------------
+
+SRC_PATH=`arg_path $SRC`
+SRC_HOST=`arg_host $SRC`
+DST_PATH=`arg_path $DST`
+
+#-------------------------------------------------------------------------------
+# Get Datastore information
+#-------------------------------------------------------------------------------
+
+XPATH="${DRIVER_PATH}/../../datastore/xpath.rb --stdin"
+
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+        XPATH_ELEMENTS[i++]="$element"
+done < <(onedatastore show -x $DS_ID | $XPATH \
+                    /DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /DATASTORE/TEMPLATE/NODE_LIST \
+                    /DATASTORE/TEMPLATE/LAYER_LIST \
+                    /DATASTORE/TEMPLATE/REPLICAS_ON_SAME \
+                    /DATASTORE/TEMPLATE/REPLICAS_ON_DIFFERENT \
+                    /DATASTORE/TEMPLATE/AUTO_PLACE \
+                    /DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH \
+                    /DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH_REGEX \
+                    /DATASTORE/TEMPLATE/STORAGE_POOL \
+                    /DATASTORE/TEMPLATE/DISKLESS_POOL \
+                    /DATASTORE/TEMPLATE/ENCRYPTION)
+
+LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+NODE_LIST="${XPATH_ELEMENTS[j++]}"
+LAYER_LIST="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_SAME="${XPATH_ELEMENTS[j++]}"
+REPLICAS_ON_DIFFERENT="${XPATH_ELEMENTS[j++]}"
+AUTO_PLACE="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH="${XPATH_ELEMENTS[j++]}"
+DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
+STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
+DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
+ENCRYPTION="${XPATH_ELEMENTS[j++]}"
+
+linstor_load_keys
+
+#-------------------------------------------------------------------------------
+# Get Image information
+#-------------------------------------------------------------------------------
+
+DISK_ID=$(echo "$SRC_PATH" | $AWK -F. '{print $NF}')
+DST_DEV="$DST_PATH"
+DST_RES="$(echo "$DST_DEV" | $AWK -F/ '{print $(NF-1)}')"
+
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <(onevm show -x $VM_ID| $XPATH \
+                    /VM/DEPLOY_ID \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/SOURCE \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/CLONE )
+
+DEPLOY_ID="${XPATH_ELEMENTS[j++]}"
+SRC_DEV="${XPATH_ELEMENTS[j++]}"
+CLONE="${XPATH_ELEMENTS[j++]}"
+
+if [ "$CLONE" = "NO" ]; then
+    SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
+else
+    SRC_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
+    SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
+fi
+
+#-------------------------------------------------------------------------------
+# Copy Image back to the datastore
+#-------------------------------------------------------------------------------
+
+VD_DATA="$($LINSTOR -m volume-definition list)"
+VD_STATUS=$?
+
+if [ "$VD_STATUS" != "0" ]; then
+    echo "$VD_DATA"
+    exit $VD_STATUS
+fi
+
+ORIGINAL_SIZE_K="$(linstor_vd_size "$VD_DATA" "$SRC_RES")"
+if [ -z "$ORIGINAL_SIZE_K" ]; then
+    error_message "Error getting $SRC_RES volume size"
+    exit -1
+fi
+
+linstor_deploy_volume "$DST_RES" "${ORIGINAL_SIZE_K}K"
+
+linstor_attach_volume "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"
+    
+if [ "$SNAP_ID" = "-1" ]; then
+    ssh_exec_and_log "$SRC_HOST" "$QEMU_IMG convert -O raw $SRC_DEV $DST_DEV" \
+                     "Error cloning $SRC_DEV to $DST_DEV on $SRC_HOST"
+    
+    exec_and_log "$LINSTOR resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes" \
+        "Error setting allow-two-primaries=yes"
+    
+    linstor_detach_volume "$SRC_HOST" "$DST_RES" 1
+    
+    exit 0
+else
+    SNAPSHOT="snapshot-${SNAP_ID}"
+    TMP_RES="${SRC_RES}-tmp"
+    TMP_DEV="/dev/drbd/by-res/${TMP_RES}/0"
+
+    linstor_deploy_snapshot "$SRC_RES" "$SNAPSHOT" "$TMP_RES"
+    
+    linstor_attach_volume "$SRC_HOST" "$TMP_RES" "$DISKLESS_POOL"
+    
+    ssh_exec_and_log "$SRC_HOST" "$QEMU_IMG convert -O raw $TMP_DEV $DST_DEV" \
+                     "Error cloning $TMP_DEV to $DST_DEV on $SRC_HOST"
+    
+    exec_and_log "$LINSTOR resource-definition delete $TMP_RES --async" \
+                 "Error deleting $TMP_RES"
+fi
+
+exit 0
