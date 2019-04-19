@@ -118,8 +118,8 @@ fi
 
 ORIGINAL_SIZE_K="$(linstor_vd_size "$VD_DATA" "$SRC_RES")"
 if [ -z "$ORIGINAL_SIZE_K" ]; then
-    echo "Error getting $SRC_RES volume size"
-    exit 1
+    error_message "Error getting $SRC_RES volume size"
+    exit -1
 fi
 
 linstor_deploy_volume "$DST_RES" "${ORIGINAL_SIZE_K}K"

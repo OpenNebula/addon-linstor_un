@@ -112,7 +112,7 @@ linstor_attach_volume "$SRC_HOST" "$TMP_RES" "$DISKLESS_POOL"
 ssh_exec_and_log "$SRC_HOST" "$QEMU_IMG convert -O raw $TMP_DEV $SRC_DEV" \
                  "Error cloning $TMP_DEV to $SRC_DEV on $SRC_HOST"
 
-exec_and_log "$LINSTOR resource-definition delete $TMP_RES" \
+exec_and_log "$LINSTOR resource-definition delete $TMP_RES --async" \
              "Error deleting $TMP_RES"
 
 exit 0
