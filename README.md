@@ -63,6 +63,15 @@ DS_MAD_CONF = [
 ]
 ```
 
+### Update **vmm_execrc**:
+
+- add `kvm-linstor_un` to the LIVE_DISK_SNAPSHOTS list
+
+```diff
+-LIVE_DISK_SNAPSHOTS="kvm-qcow2 kvm-ceph"
++LIVE_DISK_SNAPSHOTS="kvm-qcow2 kvm-ceph kvm-linstor_un"
+```
+
 ## Configuration
 
 Example images datastore:
