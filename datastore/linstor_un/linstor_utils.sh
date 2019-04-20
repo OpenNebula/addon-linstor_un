@@ -321,38 +321,25 @@ function linstor_exec_and_log {
     fi
 }
 
+#-------------------------------------------------------------------------------
+# Cleans up created linstor resources and resource-definitions
+#   Gets environment variables:
+#   - LINSTOR_CLEANUP_RD
+#   - LINSTOR_CLEANUP_R
+#-------------------------------------------------------------------------------
+function linstor_cleanup_trap {
+    for RES in $LINSTOR_CLEANUP_RD; do
+        linstor_exec_and_log_no_error \
+            "resource-definition delete $RES --async"
+    done
 
-#-------------------------------------------------------------------------------
-# Adds handler for linstor_exec_and_log_no_error command to exit trap
-#   @param $1 - number of trap (to add)
-#   @param $2 - command execution args
-#-------------------------------------------------------------------------------
-function linstor_trap_and_log_no_error {
-    NUM=$(printf "%04d" $1)
-    export "LINSTOR_TRAP_$NUM=linstor_exec_and_log_no_error \"$2\""
-}
-
-#-------------------------------------------------------------------------------
-# Unsets specific linstor command handler from exit trap
-#   @param $1 - trap number (to remove)
-#-------------------------------------------------------------------------------
-function linstor_untrap {
-    NUM=$(printf "%04d" $1)
-    unset "LINSTOR_TRAP_$NUM"
-}
-
-#-------------------------------------------------------------------------------
-# Executes commands from LINSTOR_TRAP_[0-9]+ variables
-#-------------------------------------------------------------------------------
-function linstor_trap_run {
-    while read CMD; do
-        eval "$CMD ||:"
-    done < <(env | sort -r | sed -n 's/^LINSTOR_TRAP_[0-9]\+=//p')
-}
-
-#-------------------------------------------------------------------------------
-# Loads trap to execute linstor commands on exit
-#-------------------------------------------------------------------------------
-function linstor_load_trap {
-    trap linstor_trap_run EXIT
+    for NODE_RES in $LINSTOR_CLEANUP_R; do
+        if ! [[ " $LINSTOR_CLEANUP_RD " =~ " $RES " ]]; then
+            break
+        fi
+        NODE=${NODE_RES%%:*}
+        RES=${NODE_RES##*:}
+        linstor_exec_and_log_no_error \
+            "resource delete $NODE $RES --async"
+    done
 }
