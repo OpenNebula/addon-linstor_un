@@ -28,16 +28,13 @@ linstor_monitor_storpool() {
 
 
 #--------------------------------------------------------------------------------
-# Parse the output of linstor -m volume-definition list in json format and take
-# size of the volume definition for the resource
-# You **MUST** define JQ util before using this function
-#   @param $1 the json output of the command
-#   @param $2 resource name
+# Getting volume size from linstor server
+#   @param $1 resource name
+#   @return volume size in kilobytes
 #--------------------------------------------------------------------------------
 linstor_vd_size() {
-    echo "$1" | $JQ -r ".[].rsc_dfns[] |
-	select(.rsc_name==\"${2}\").vlm_dfns[] |
-        select(.vlm_nr==0).vlm_size"
+    $LINSTOR -m volume-definition list | $JQ -r ".[].rsc_dfns[] |
+	select(.rsc_name==\"${2}\").vlm_dfns[] | select(.vlm_nr==0).vlm_size"
 }
 
 #--------------------------------------------------------------------------------
@@ -217,7 +214,7 @@ function linstor_get_host_for_res {
     local MUST_CONTAIN="${2:-0}"
     local RR_ID="$3"
 
-    local IMAGE_NODES="$(linstor_get_host_for_res $RES)"
+    local IMAGE_NODES="$(linstor_get_hosts_for_res $RES)"
     unset REDUCED_LIST
     for NODE in $BRIDGE_LIST; do
         if [[ " $IMAGE_NODES " =~ " $NODE " ]] ; then
@@ -303,13 +300,7 @@ function linstor_exec_and_log_no_error {
     fi
 
     if [ $EXEC_LOG_RC -ne 0 ]; then
-        log_error "Command \"linstor $1\" failed: $EXEC_LOG_ERR"
-
-        if [ -n "$2" ]; then
-            error_message "$2"
-        else
-            error_message "Error executing linstor $1: $EXEC_LOG_ERR"
-        fi
+        error_message "Command \"linstor $1\" failed: $EXEC_LOG_ERR"
         return $EXEC_LOG_RC
     fi
 }
@@ -328,4 +319,40 @@ function linstor_exec_and_log {
     if [ $EXEC_LOG_RC -ne 0 ]; then
         exit $EXEC_LOG_RC
     fi
+}
+
+
+#-------------------------------------------------------------------------------
+# Adds handler for linstor_exec_and_log_no_error command to exit trap
+#   @param $1 - number of trap (to add)
+#   @param $2 - command execution args
+#-------------------------------------------------------------------------------
+function linstor_trap_and_log_no_error {
+    NUM=$(printf "%04d" $1)
+    export "LINSTOR_TRAP_$NUM=linstor_exec_and_log_no_error \"$2\""
+}
+
+#-------------------------------------------------------------------------------
+# Unsets specific linstor command handler from exit trap
+#   @param $1 - trap number (to remove)
+#-------------------------------------------------------------------------------
+function linstor_untrap {
+    NUM=$(printf "%04d" $1)
+    unset "LINSTOR_TRAP_$NUM"
+}
+
+#-------------------------------------------------------------------------------
+# Executes commands from LINSTOR_TRAP_[0-9]+ variables
+#-------------------------------------------------------------------------------
+function linstor_trap_run {
+    while read CMD; do
+        eval "$CMD ||:"
+    done < <(env | sort -r | sed -n 's/^LINSTOR_TRAP_[0-9]\+=//p')
+}
+
+#-------------------------------------------------------------------------------
+# Loads trap to execute linstor commands on exit
+#-------------------------------------------------------------------------------
+function linstor_load_trap {
+    trap linstor_trap_run EXIT
 }

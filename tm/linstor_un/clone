@@ -129,33 +129,47 @@ if [ -z "$STORAGE_POOL" ]; then
 fi
 
 linstor_load_keys
+linstor_load_trap
 
-trap 'eval "$EXIT_CMD"' EXIT
-
-linstor_exec_and_log "resource-definition create $DST_RES"
-EXIT_CMD="linstor_exec_and_log_no_error 'resource-definition delete $DST_RES --async'; $EXIT_CMD"
-linstor_exec_and_log "volume-definition create $VOL_CREATE_ARGS $DST_RES ${SIZE}M"
-linstor_exec_and_log "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
+# Deploy new volume
+linstor_exec_and_log \
+    "resource-definition create $DST_RES" 
+linstor_trap_and_log_no_error 0 \
+    "resource-definition delete $DST_RES --async"
+linstor_exec_and_log \
+    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${SIZE}M"
+linstor_exec_and_log \
+    "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
 SRC_RES_NODES=$(linstor_get_hosts_for_res "$SRC_RES")
 DST_RES_NODES=$(linstor_get_hosts_for_res "$DST_RES")
 
+# Attach diskless resources on SRC_RES side
 if ! [[ " $SRC_RES_NODES " =~ " $SRC_HOST " ]]; then
-    linstor_exec_and_log "resource create -s $DISKLESS_POOL $SRC_HOST $SRC_RES"
-    EXIT_CMD="linstor_exec_and_log_no_error 'resource delete $SRC_RES --async'; $EXIT_CMD"
+    linstor_exec_and_log \
+        "resource create -s $DISKLESS_POOL $SRC_HOST $SRC_RES"
+    linstor_trap_and_log_no_error 1 \
+        "resource delete $SRC_RES --async"
 fi
-if ! [[ " $SRC_RES_NODES " =~ " $SRC_HOST " ]]; then
-    linstor_exec_and_log "resource create -s $DISKLESS_POOL $SRC_HOST $DST_RES"
-    EXIT_CMD="linstor_exec_and_log_no_error 'resource delete $DST_RES --async'; $EXIT_CMD"
+if ! [[ " $DST_RES_NODES " =~ " $SRC_HOST " ]]; then
+    linstor_exec_and_log \
+        "resource create -s $DISKLESS_POOL $SRC_HOST $DST_RES"
+    linstor_trap_and_log_no_error 2 \
+        "resource delete $DST_RES --async"
 fi
 
-ssh_exec_and_log "$SRC_HOST" "$QEMU_IMG convert -O raw $SRC_PATH $DST_DEV" \
-                 "Error cloning $SRC_RES to $DST_RES on $SRC_HOST"
+# Clone image from SRC_RES to DST_RES
+ssh_exec_and_log "$SRC_HOST" \
+    "$QEMU_IMG convert -O raw $SRC_PATH $DST_DEV" \
+    "Error cloning $SRC_RES to $DST_RES on $SRC_HOST"
 
+# Attach diskless resources on destination host
 if ! [[ " $DST_RES_NODES " =~ " $DST_HOST " ]]; then
-    linstor_exec_and_log "resource create -s $DISKLESS_POOL $DST_HOST $DST_RES"
+    linstor_exec_and_log \
+        "resource create -s $DISKLESS_POOL $DST_HOST $DST_RES"
 fi
 
+# Link device on destination host
 LINK_CMD=$(cat <<EOF
     set -e -o pipefail
     mkdir -p $DST_DIR
@@ -165,4 +179,9 @@ EOF
 )
 
 ssh_exec_and_log "$DST_HOST" "$LINK_CMD" \
-                 "Error linking $DST_DEV to $DST_PATH on $DST_HOST"
+    "Error linking $DST_DEV to $DST_PATH on $DST_HOST"
+
+# Remove 'resource-definition delete' trap
+linstor_untrap 0
+
+exit 0
