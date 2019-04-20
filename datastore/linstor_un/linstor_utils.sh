@@ -194,6 +194,16 @@ EOF
 }
 
 #-------------------------------------------------------------------------------
+# Gets the hosts list contains resource
+#   @param $1 - the resource name (to search)
+#   @return hosts list contains the resource
+#-------------------------------------------------------------------------------
+function linstor_get_hosts_for_res {
+    local RES="$1"
+    $LINSTOR -m resource list -r $RES | jq -r '.[].resources[].node_name' | xargs
+}
+
+#-------------------------------------------------------------------------------
 # Gets the host contains volume to be used as bridge to talk to the storage system
 # Implements a round robin for the bridges
 #   @param $1 - the volume (to search)
@@ -207,7 +217,7 @@ function linstor_get_host_for_res {
     local MUST_CONTAIN="${2:-0}"
     local RR_ID="$3"
 
-    local IMAGE_NODES="$($LINSTOR -m resource list -r "${RES}" | $JQ -r '.[].resources[].node_name' | xargs)"
+    local IMAGE_NODES="$(linstor_get_host_for_res $RES)"
     unset REDUCED_LIST
     for NODE in $BRIDGE_LIST; do
         if [[ " $IMAGE_NODES " =~ " $NODE " ]] ; then
@@ -252,4 +262,70 @@ function linstor_get_res_for_vmid {
     fi
 
     echo "$RD_DATA" | $JQ -r ".[].rsc_dfns[].rsc_name | select(. | test(\"^one-vm-${VMID}-disk-[0-9]+$\"))"
+}
+
+
+
+function linstor_exec_and_log {
+    message=$2
+
+    EXEC_LOG_ERR=`$LINSTOR $@ 2>&1 1>/dev/null`
+    EXEC_LOG_RC=$?
+
+    if [ $EXEC_LOG_RC -ne 0 ]; then
+        log_error "Command \"$1\" failed: $EXEC_LOG_ERR"
+
+        if [ -n "$2" ]; then
+            error_message "$2"
+        else
+            error_message "Error executing $1: $EXEC_LOG_ERR"
+        fi
+        exit $EXEC_LOG_RC
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Executes a linstor command, if it fails returns error message but does not exit
+# If a second parameter is present it is used as the error message when
+# the command fails
+#   @param $1 - the command (to execute)
+#   @param $2 - error message (optional)
+#-------------------------------------------------------------------------------
+function linstor_exec_and_log_no_error {
+    EXEC_LOG=`exec $LINSTOR -m $1 2>&1`
+    EXEC_LOG_RC=$?
+
+    EXEC_LOG_ERR=`echo "$EXEC_LOG" | $JQ -r '.[] | select(.error_report_ids) | .message + " Error reports: [ " + (.error_report_ids | join(", ")) + " ]"'`
+    if [ -z "$EXEC_LOG_ERR" ]; then
+        EXEC_LOG_ERR="$EXEC_LOG"
+    else
+        EXEC_LOG_RC=1
+    fi
+
+    if [ $EXEC_LOG_RC -ne 0 ]; then
+        log_error "Command \"linstor $1\" failed: $EXEC_LOG_ERR"
+
+        if [ -n "$2" ]; then
+            error_message "$2"
+        else
+            error_message "Error executing linstor $1: $EXEC_LOG_ERR"
+        fi
+        return $EXEC_LOG_RC
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Executes a linstor command, if it fails returns error message and exits
+# If a second parameter is present it is used as the error message when
+# the command fails
+#   @param $1 - the command (to execute)
+#   @param $2 - error message (optional)
+#-------------------------------------------------------------------------------
+function linstor_exec_and_log {
+    linstor_exec_and_log_no_error "$@"
+    EXEC_LOG_RC=$?
+
+    if [ $EXEC_LOG_RC -ne 0 ]; then
+        exit $EXEC_LOG_RC
+    fi
 }
