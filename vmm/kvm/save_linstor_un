@@ -121,7 +121,7 @@ ssh_exec_and_log "$SRC_HOST" "$SAVE_CMD" \
 ORIGINAL_SIZE_B="$($SSH $SRC_HOST $QEMU_IMG info $DST_PATH | \
     $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
 
-if [ -z "$ORIGINAL_SIZE_K" ]; then
+if [ -z "$ORIGINAL_SIZE_B" ]; then
     error_message "Error getting $DST_PATH checkpoint size"
     exit -1
 fi
