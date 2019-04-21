@@ -103,7 +103,7 @@ function linstor_get_hosts_for_res {
 function linstor_get_diskless_hosts_for_res {
     local RES="$1"
     $LINSTOR -m resource list -r $RES | \
-        $JQ -r '.[].resources[].node_name' | \
+        $JQ -r '.[].resources[] | select(.rsc_flags[] | contains("DISKLESS")) | .node_name' | \
         xargs
 }
 
@@ -166,7 +166,7 @@ function linstor_get_res_for_vmid {
     fi
 
     echo "$RD_DATA" | \
-        $JQ -r ".[].rsc_dfns[].rsc_name | \
+        $JQ -r ".[].rsc_dfns[].rsc_name |
         select(. | test(\"^one-vm-${VMID}-disk-[0-9]+$\"))"
 }
 
@@ -202,9 +202,8 @@ function linstor_exec_and_log_no_error {
     EXEC_LOG_RC=$?
 
     EXEC_LOG_ERR=$(echo "$EXEC_LOG" | \
-        $JQ -r '.[] | select(.error_report_ids) | \
-        .message + \
-        " Error reports: [ " + (.error_report_ids | join(", ")) + " ]"')
+        $JQ -r '.[] | select(.error_report_ids) |
+        .message + " Error reports: [ " + (.error_report_ids | join(", ")) + " ]"')
 
     if [ -z "$EXEC_LOG_ERR" ]; then
         EXEC_LOG_ERR="$EXEC_LOG"

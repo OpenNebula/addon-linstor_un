@@ -164,7 +164,7 @@ linstor_exec_and_log \
     "resource-definition create $DST_RES" 
 LINSTOR_CLEANUP_RD+=" $DST_RES"
 linstor_exec_and_log \
-    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_K}K"
+    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_B}B"
 linstor_exec_and_log \
     "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
