@@ -61,5 +61,7 @@ linstor_load_keys
 
 SNAPSHOT="snapshot-${SNAP_ID}"
 
-exec_and_log "$LINSTOR --warn-as-error snapshot delete $SRC_RES $SNAPSHOT" \
-                 "Error deleting $SNAPSHOT for $SRC_RES"
+linstor_exec_and_log \
+    "snapshot delete $SRC_RES $SNAPSHOT"
+
+exit 0

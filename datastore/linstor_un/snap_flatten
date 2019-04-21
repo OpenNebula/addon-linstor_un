@@ -59,7 +59,12 @@ SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
 
 linstor_load_keys
 
-ALL_SNAP_IDS=$($LINSTOR -m snapshot list | $JQ -r ".[].snapshot_dfns[] | select(.rsc_name==\"${SRC_RES}\") | .snapshot_name" | awk -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | sort -nr)
+ALL_SNAP_IDS=$($LINSTOR -m snapshot list | \
+    $JQ -r ".[].snapshot_dfns[] | \
+    select(.rsc_name==\"${SRC_RES}\") | .snapshot_name" | \
+    awk -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | \
+    sort -nr)
+
 if [ -z "$ALL_SNAP_IDS" ]; then
     error_message "Can not find any snapshots for $SRC_RES"
     exit -1
@@ -70,11 +75,14 @@ for MRG_SNAP_ID in $ALL_SNAP_IDS; do
     SNAPSHOT="snapshot-${MRG_SNAP_ID}"
 
     if [ "$SNAP_ID" = "$MRG_SNAP_ID" ]; then
-        exec_and_log "$LINSTOR snapshot rollback $SRC_RES $SNAPSHOT" \
-                 "Error reverting $SNAPSHOT for $SRC_RES"
+        # Rollback snapshot 
+        linstor_exec_and_log \
+            "snapshot rollback $SRC_RES $SNAPSHOT"
     fi
 
-    exec_and_log "$LINSTOR --warn-as-error snapshot delete $SRC_RES $SNAPSHOT" \
-                 "Error deleting $SNAPSHOT for $SRC_RES"
+    linstor_exec_and_log \
+        "snapshot delete $SRC_RES $SNAPSHOT"
 
 done
+
+exit 0

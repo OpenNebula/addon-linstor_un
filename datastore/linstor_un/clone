@@ -106,34 +106,49 @@ fi
 
 linstor_load_keys
 
+# Load cleanup trap
+trap linstor_cleanup_trap EXIT
+
 SAFE_DIRS=""
 
-VD_DATA="$($LINSTOR -m volume-definition list)"
-VD_STATUS=$?
-
-if [ "$VD_STATUS" != "0" ]; then
-    echo "$VD_DATA"
-    exit $VD_STATUS
-fi
-
-ORIGINAL_SIZE_K="$(linstor_vd_size "$VD_DATA" "$SRC_RES")"
+ORIGINAL_SIZE_K="$(linstor_vd_size "$SRC_RES")"
 if [ -z "$ORIGINAL_SIZE_K" ]; then
     error_message "Error getting $SRC_RES volume size"
     exit -1
 fi
 
-linstor_deploy_volume "$DST_RES" "${ORIGINAL_SIZE_K}K"
+# Deploy new volume
+linstor_exec_and_log \
+    "resource-definition create $DST_RES" 
+LINSTOR_CLEANUP_RD+=" $DST_RES"
+linstor_exec_and_log \
+    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_K}K"
+linstor_exec_and_log \
+    "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
-linstor_attach_volume "$SRC_HOST" "$SRC_RES" "$DISKLESS_POOL"
-linstor_attach_volume "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"
+SRC_RES_HOSTS=$(linstor_get_hosts_for_res "$SRC_RES")
+DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
 
-ssh_exec_and_log "$SRC_HOST" "$QEMU_IMG convert -O raw $SRC $DST_DEV" \
-                 "Error cloning $SRC to $DST_DEV on $SRC_HOST"
+# Attach diskless resource for DST_RES on SRC_RES side
+if ! [[ " $SRC_RES_HOSTS " =~ " $SRC_HOST " ]]; then
+    linstor_exec_and_log \
+        "resource create -s $DISKLESS_POOL $SRC_HOST $SRC_RES"
+    LINSTOR_CLEANUP_RES+=" $SRC_HOST:$SRC_RES"
+fi
+if ! [[ " $DST_RES_HOSTS " =~ " $SRC_HOST " ]]; then
+    linstor_exec_and_log \
+        "resource create -s $DISKLESS_POOL $SRC_HOST $DST_RES"
+    LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
+fi
 
-exec_and_log "$LINSTOR resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes" \
-    "Error setting allow-two-primaries=yes"
+# Clone image from SRC_RES to DST_RES
+ssh_exec_and_log "$SRC_HOST" \
+    "$QEMU_IMG convert -O raw $SRC $DST_DEV" \
+    "Error cloning $SRC to $DST_DEV on $SRC_HOST"
 
-linstor_detach_volume "$SRC_HOST" "$SRC_RES" 1
-linstor_detach_volume "$SRC_HOST" "$DST_RES" 1
+# Set allow-two-primaries=yes
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"
 
+LINSTOR_CLEANUP_RD=
 echo "$DST"

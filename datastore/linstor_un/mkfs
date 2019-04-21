@@ -119,24 +119,35 @@ fi
 
 # ------------ Create the image in the repository ------------
 
-MKFS_CMD=`mkfs_command ${DST_DEV} $FSTYPE $SIZE`
+# Deploy new volume
+linstor_exec_and_log \
+    "resource-definition create $DST_RES" 
+LINSTOR_CLEANUP_RD+=" $DST_RES"
+linstor_exec_and_log \
+    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${SIZE}M"
+linstor_exec_and_log \
+    "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
-linstor_deploy_volume "$DST_RES" "${SIZE}M"
+if [ "$FSTYPE" != "raw" ]; then
 
-if [ "$FSTYPE" = "raw" ]; then
-    echo "$DST"
-    exit 0
+    # Attach diskless resource for DST_RES on DST_HOST
+    DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
+    if ! [[ " $DST_RES_HOSTS " =~ " $DST_HOST " ]]; then
+        linstor_exec_and_log \
+            "resource create -s $DISKLESS_POOL $DST_HOST $DST_RES"
+        LINSTOR_CLEANUP_RES+=" $DST_HOST:$DST_RES"
+    fi
+
+    # Make new filesystem
+    MKFS_CMD=`mkfs_command $DST_DEV $FSTYPE $SIZE`
+    ssh_exec_and_log "$DST_HOST" "$MKFS_CMD" \
+        "Unable to create filesystem $FSTYPE in $DST_HOST:$DST_DEV"
+    
+    # Set allow-two-primaries=yes
+    linstor_exec_and_log \
+        "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"
+
 fi
 
-linstor_attach_volume "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
-
-ssh_exec_and_log "$DST_HOST" "$MKFS_CMD" \
-    "Unable to create filesystem $FSTYPE in $DST_HOST:$DST_DEV"
-
-exec_and_log "$LINSTOR resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes" \
-    "Error setting allow-two-primaries=yes"
-
-linstor_detach_volume "$DST_HOST" "$DST_RES" 1
-
-
+LINSTOR_CLEANUP_RD=
 echo "$DST"
