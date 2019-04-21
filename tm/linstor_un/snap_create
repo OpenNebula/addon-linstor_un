@@ -88,7 +88,7 @@ fi
 
 SNAPSHOT="snapshot-${SNAP_ID}"
 
-exec_and_log "$LINSTOR snapshot create $SRC_RES $SNAPSHOT" \
-                 "Error creating $SNAPSHOT for $SRC_RES"
+linstor_exec_and_log \
+    "snapshot create $SRC_RES $SNAPSHOT"
 
 exit 0

@@ -69,7 +69,7 @@ linstor_load_keys
 # Resize disk
 #-------------------------------------------------------------------------------
 
-exec_and_log "$LINSTOR volume-definition set-size $SRC_RES 0 ${SIZE}M" \
-                 "Error resizing disk $SRC_RES"
+linstor_exec_and_log \
+    "volume-definition set-size $SRC_RES 0 ${SIZE}M" \
 
 exit 0

@@ -71,9 +71,17 @@ DST_RES="$(echo "$DST" | $AWK -F/ '{print $(NF-1)}')"
 # Unlink the image
 #-------------------------------------------------------------------------------
 
-linstor_detach_volume "$SRC_HOST" "$DST_RES" 1
+# Detach resource
+DST_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$DST_RES")
+if [[ " $DST_RES_DISKLESS_HOSTS " =~ " $SRC_HOST " ]]; then
+    linstor_exec_and_log \
+        "resource delete $SRC_HOST $DST_RES --async"
+fi
 
-ssh_exec_and_log "$SRC_HOST" "rm -f $SRC_PATH" \
-                 "Error unlinking $SRC_PATH on $SRC_HOST"
+
+# Unlink device on destination host
+ssh_exec_and_log "$SRC_HOST" \
+    "rm -f $SRC_PATH" \
+    "Error unlinking $SRC_PATH on $SRC_HOST"
 
 exit 0
