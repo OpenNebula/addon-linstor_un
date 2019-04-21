@@ -154,7 +154,8 @@ linstor_attach_volume() {
     local ATTACH_CMD=$(cat <<EOF
         set -e -o pipefail
 
-        CREATED_RES=\$($LINSTOR -m resource list -r "$RES" -n "$NODE" | $JQ -r '.[].resources[].name')
+        CREATED_RES=\$($LINSTOR -m resource list -r "$RES" -n "$NODE" | \
+            $JQ -r '.[].resources[].name')
         if [ -z "\$CREATED_RES"]; then
             $LINSTOR resource create -s "$DISKLESS_POOL" "$NODE" "$RES" 
         fi
@@ -180,7 +181,11 @@ linstor_detach_volume() {
     local DETACH_CMD=$(cat <<EOF
         set -e -o pipefail
     
-        DISKLESS_RES=\$($LINSTOR -m resource list -r "$RES" -n "$NODE" | $JQ -r '.[].resources[] | select(.rsc_flags[] | contains("DISKLESS")) | .name')
+        DISKLESS_RES=\$($LINSTOR -m resource list -r "$RES" -n "$NODE" | \
+            $JQ -r '.[].resources[] | \
+            select(.rsc_flags[] | \
+            contains("DISKLESS")) | \
+            .name')
         if [ -n "\$DISKLESS_RES" ]; then
             $LINSTOR resource delete "$NODE" "$RES" $ASYNC_ARG
         fi
@@ -197,7 +202,21 @@ EOF
 #-------------------------------------------------------------------------------
 function linstor_get_hosts_for_res {
     local RES="$1"
-    $LINSTOR -m resource list -r $RES | jq -r '.[].resources[].node_name' | xargs
+    $LINSTOR -m resource list -r $RES | \
+        $JQ -r '.[].resources[].node_name' | \
+        xargs
+}
+
+#-------------------------------------------------------------------------------
+# Gets the hosts list contains resource
+#   @param $1 - the resource name (to search)
+#   @return hosts list contains the resource
+#-------------------------------------------------------------------------------
+function linstor_get_diskless_hosts_for_res {
+    local RES="$1"
+    $LINSTOR -m resource list -r $RES | \
+        $JQ -r '.[].resources[].node_name' | \
+        xargs
 }
 
 #-------------------------------------------------------------------------------
@@ -258,7 +277,9 @@ function linstor_get_res_for_vmid {
         exit -1
     fi
 
-    echo "$RD_DATA" | $JQ -r ".[].rsc_dfns[].rsc_name | select(. | test(\"^one-vm-${VMID}-disk-[0-9]+$\"))"
+    echo "$RD_DATA" | \
+        $JQ -r ".[].rsc_dfns[].rsc_name | \
+        select(. | test(\"^one-vm-${VMID}-disk-[0-9]+$\"))"
 }
 
 
@@ -292,7 +313,11 @@ function linstor_exec_and_log_no_error {
     EXEC_LOG=`exec $LINSTOR -m $1 2>&1`
     EXEC_LOG_RC=$?
 
-    EXEC_LOG_ERR=`echo "$EXEC_LOG" | $JQ -r '.[] | select(.error_report_ids) | .message + " Error reports: [ " + (.error_report_ids | join(", ")) + " ]"'`
+    EXEC_LOG_ERR=$(echo "$EXEC_LOG" | \
+        $JQ -r '.[] | select(.error_report_ids) | \
+        .message + \
+        " Error reports: [ " + (.error_report_ids | join(", ")) + " ]"')
+
     if [ -z "$EXEC_LOG_ERR" ]; then
         EXEC_LOG_ERR="$EXEC_LOG"
     else
