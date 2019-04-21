@@ -113,7 +113,7 @@ function linstor_get_diskless_hosts_for_res {
 #   not defined
 #   @return host to be used as bridge
 #-------------------------------------------------------------------------------
-function linstor_get_host_for_res {
+function linstor_get_bridge_host_for_res {
     local RES="$1"
     local MUST_CONTAIN="${2:-0}"
     local RR_ID="$3"

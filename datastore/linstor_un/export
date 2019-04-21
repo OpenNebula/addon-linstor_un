@@ -78,7 +78,7 @@ echo "<FORMAT><![CDATA[raw]]></FORMAT>"
 EOF
 )
 
-SRC_HOST=`linstor_get_host_for_res "$SRC_RES" 0`
+SRC_HOST=`linstor_get_bridge_host_for_res "$SRC_RES" 0`
 if [ -z "$SRC_HOST" ]; then
     error_message "Datastore template missing 'BRIDGE_LIST' attribute."
     exit -1
