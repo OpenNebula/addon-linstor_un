@@ -70,6 +70,15 @@ STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 
+SRC_RES="one-vm-${VM_ID}-checkpoint"
+SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
+SRC_XML=${SRC_PATH}.xml
+DS_ID=$(echo $SRC_PATH | $AWK -F/ '{print $(NF-2)}')
+DS_LOCATION=$(echo $SRC_PATH | $SED 's|\(/[^/]*\)\{2\}$||g')
+DS_LOCATION_NON_DOUBLE_SLASH=$(echo "$DS_LOCATION" | $SED 's|//|/|g')
+
+#-------------------------------------------------------------------------------
+# TM_MAD is not 'linstor_un'
 #-------------------------------------------------------------------------------
 
 if [ "$TM_MAD" != "linstor_un" ]; then
@@ -77,6 +86,8 @@ if [ "$TM_MAD" != "linstor_un" ]; then
     exit $?
 fi
 
+#-------------------------------------------------------------------------------
+# TM_MAD is 'linstor_un'
 #-------------------------------------------------------------------------------
 
 source ${DRIVER_PATH}/../../etc/vmm/kvm/kvmrc
@@ -86,20 +97,23 @@ source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
 
 linstor_load_keys
 
-SRC_RES="one-vm-${VM_ID}-checkpoint"
-SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
-SRC_XML=${SRC_PATH}.xml
-DS_ID=$(echo $SRC_PATH | $AWK -F/ '{print $(NF-2)}')
-DS_LOCATION=$(echo $SRC_PATH | $SED 's|\(/[^/]*\)\{2\}$||g')
-DS_LOCATION_NON_DOUBLE_SLASH=$(echo "$DS_LOCATION" | $SED 's|//|/|g')
+# Load cleanup trap
+trap linstor_cleanup_trap EXIT
 
-linstor_attach_volume "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
+# Attach diskless resource for DST_RES on DST_HOST
+SRC_RES_HOSTS=$(linstor_get_hosts_for_res "$SRC_RES")
+if ! [[ " $SRC_RES_HOSTS " =~ " $DST_HOST " ]]; then
+    linstor_exec_and_log \
+        "resource create -s $DISKLESS_POOL $DST_HOST $SRC_RES"
+fi
 
-ssh_exec_and_log    "$DST_HOST" "$QEMU_IMG convert -O raw $SRC_DEV $SRC_PATH" \
-                    "Error importing $SRC_DEV on $DST_HOST"
+ssh_exec_and_log "$DST_HOST" \
+    "$QEMU_IMG convert -O raw $SRC_DEV $SRC_PATH" \
+    "Error importing $SRC_DEV on $DST_HOST"
 
-exec_and_log "$LINSTOR resource-definition delete $SRC_RES --async" \
-             "Error deleting $SRC_RES"
+exec_and_log \
+    "$LINSTOR resource-definition delete $SRC_RES --async" \
+    "Error deleting $SRC_RES"
 
 RECALCULATE_CMD=$(cat <<EOF
 set -e -o pipefail
@@ -127,7 +141,8 @@ ssh_exec_and_log "$DST_HOST" "$RECALCULATE_CMD" \
 # We retry 3 times before failing completely.
 
 function restore_domain {
-    ssh_exec_and_log "$DST_HOST" "virsh --connect $LIBVIRT_URI restore $SRC_PATH --xml $SRC_XML" \
+    ssh_exec_and_log "$DST_HOST" \
+        "virsh --connect $LIBVIRT_URI restore $SRC_PATH --xml $SRC_XML" \
         "Could not restore from $SRC_PATH on $DST_HOST"
 }
 
@@ -137,7 +152,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-ssh_exec_and_log_no_error "$DST_HOST" "rm $SRC_PATH $SRC_XML" \
+ssh_exec_and_log_no_error "$DST_HOST" \
+    "rm $SRC_PATH $SRC_XML" \
     "Could not remove $SRC_PATH or $SRC_XML on $DST_HOST"
 
 exit 0

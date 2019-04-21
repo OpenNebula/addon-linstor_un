@@ -71,7 +71,16 @@ STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 
+if [ -n "$CHECKPOINT_AUTO_PLACE" ]; then
+    AUTO_PLACE="$CHECKPOINT_AUTO_PLACE"
+fi
+
+DST_RES="one-vm-${VM_ID}-checkpoint"
+DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
+
 #-------------------------------------------------------------------------------
+# TM_MAD is not 'linstor_un'
+#-------------------------------------------------------------------------------P
 
 if [ "$TM_MAD" != "linstor_un" ]; then
     echo "$DRV_ACTION" | $SSH "$SRC_HOST" /var/tmp/one/vmm/kvm/save "$@"
@@ -79,20 +88,20 @@ if [ "$TM_MAD" != "linstor_un" ]; then
 fi
 
 #-------------------------------------------------------------------------------
+# TM_MAD is 'linstor_un'
+#-------------------------------------------------------------------------------
 
 source ${DRIVER_PATH}/../../etc/vmm/kvm/kvmrc
 source ${DRIVER_PATH}/../../datastore/libfs.sh
 source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
 source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
 
-if [ -n "$CHECKPOINT_AUTO_PLACE" ]; then
-    AUTO_PLACE="$CHECKPOINT_AUTO_PLACE"
-fi
 linstor_load_keys
 
-DST_RES="one-vm-${VM_ID}-checkpoint"
-DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
+# Load cleanup trap
+trap linstor_cleanup_trap EXIT
 
+# Saving VM state to checkpoint file
 SAVE_CMD=$(cat <<EOT
 if [ -f "$DST_PATH" ]; then
     epoch=\$(date +%s)
@@ -109,10 +118,32 @@ EOT
 ssh_exec_and_log "$SRC_HOST" "$SAVE_CMD" \
     "Could not save $DEPLOY_ID to $DST_PATH on $SRC_HOST"
 
-ORIGINAL_SIZE_B="$($SSH $SRC_HOST $QEMU_IMG info $DST_PATH | $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
+ORIGINAL_SIZE_B="$($SSH $SRC_HOST $QEMU_IMG info $DST_PATH | \
+    $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
 
-linstor_deploy_volume "$DST_RES" "${ORIGINAL_SIZE_B}B"
+if [ -z "$ORIGINAL_SIZE_K" ]; then
+    error_message "Error getting $DST_PATH checkpoint size"
+    exit -1
+fi
 
+# Deploy new volume
+linstor_exec_and_log \
+    "resource-definition create $DST_RES" 
+LINSTOR_CLEANUP_RD+=" $DST_RES"
+linstor_exec_and_log \
+    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_B}B"
+linstor_exec_and_log \
+    "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
+
+# Attach diskless resource for DST_RES on SRC_HOST
+DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
+if ! [[ " $DST_RES_HOSTS " =~ " $SRC_HOST " ]]; then
+    linstor_exec_and_log \
+        "resource create -s $DISKLESS_POOL $SRC_HOST $DST_RES"
+    LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
+fi
+
+# Import checkpoint file
 IMPORT_CMD=$(cat <<EOF
     set -e -o pipefail
 
@@ -123,13 +154,8 @@ IMPORT_CMD=$(cat <<EOF
 EOF
 )
 
-linstor_attach_volume "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"
+ssh_exec_and_log "$SRC_HOST" "$IMPORT_CMD" \
+    "Error importing $DST_DEV on $SRC_HOST"
 
-ssh_exec_and_log    "$SRC_HOST" "$IMPORT_CMD" \
-                    "Error importing $DST_DEV on $SRC_HOST"
-
-linstor_detach_volume "$SRC_HOST" "$DST_RES" 1
-
-
-
+LINSTOR_CLEANUP_RD=
 exit 0
