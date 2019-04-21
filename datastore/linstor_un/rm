@@ -63,6 +63,6 @@ linstor_load_keys
 log "Removing $SRC from the image repository"
 
 linstor_exec_and_log \
-    "resource-definition delete $SRC_RES"
+    "--warn-as-error resource-definition delete $SRC_RES"
 
 exit 0
