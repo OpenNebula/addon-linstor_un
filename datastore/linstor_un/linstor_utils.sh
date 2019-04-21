@@ -34,7 +34,7 @@ linstor_monitor_storpool() {
 #--------------------------------------------------------------------------------
 linstor_vd_size() {
     $LINSTOR -m volume-definition list | $JQ -r ".[].rsc_dfns[] |
-	select(.rsc_name==\"${2}\").vlm_dfns[] | select(.vlm_nr==0).vlm_size"
+	select(.rsc_name==\"${1}\").vlm_dfns[] | select(.vlm_nr==0).vlm_size"
 }
 
 #--------------------------------------------------------------------------------

@@ -88,7 +88,6 @@ DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 
 linstor_load_keys
-linstor_load_trap
 
 #-------------------------------------------------------------------------------
 # Get Image information
@@ -118,10 +117,6 @@ else
     SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
 fi
 
-#-------------------------------------------------------------------------------
-# Copy Image back to the datastore
-#-------------------------------------------------------------------------------
-
 # Getting volume size
 ORIGINAL_SIZE_K="$(linstor_vd_size $SRC_RES)"
 if [ -z "$ORIGINAL_SIZE_K" ]; then
@@ -129,27 +124,33 @@ if [ -z "$ORIGINAL_SIZE_K" ]; then
     exit -1
 fi
 
+#-------------------------------------------------------------------------------
+# Copy Image back to the datastore
+#-------------------------------------------------------------------------------
+
+# Load cleanup trap
+trap linstor_cleanup_trap EXIT
+
 # Deploy new volume
 linstor_exec_and_log \
     "resource-definition create $DST_RES" 
-linstor_trap_and_log_no_error 0 \
-    "resource-definition delete $DST_RES --async"
+LINSTOR_CLEANUP_RD+=" $DST_RES"
 linstor_exec_and_log \
     "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_K}K"
 linstor_exec_and_log \
     "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
-SRC_RES_NODES=$(linstor_get_hosts_for_res "$SRC_RES")
-DST_RES_NODES=$(linstor_get_hosts_for_res "$DST_RES")
+SRC_RES_HOSTS=$(linstor_get_hosts_for_res "$SRC_RES")
+DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
 
     
 if [ "$SNAP_ID" = "-1" ]; then
 
-    if ! [[ " $DST_RES_NODES " =~ " $SRC_HOST " ]]; then
+    # Attach diskless resource for DST_RES on SRC_HOST
+    if ! [[ " $DST_RES_HOSTS " =~ " $SRC_HOST " ]]; then
         linstor_exec_and_log \
             "resource create -s $DISKLESS_POOL $SRC_HOST $DST_RES"
-        linstor_trap_and_log_no_error 1 \
-            "resource delete $DST_RES --async"
+        LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
     fi
 
     # Clone image from TMP_RES to DST_RES
@@ -160,7 +161,8 @@ if [ "$SNAP_ID" = "-1" ]; then
     # Set allow-two-primaries=yes
     linstor_exec_and_log \
         "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"
-    
+
+    LINSTOR_CLEANUP_RD=
     exit 0
 else
     SNAPSHOT="snapshot-${SNAP_ID}"
@@ -170,32 +172,26 @@ else
     # Deploy snapshot
     linstor_exec_and_log \
         "resource-definition create $TMP_RES"
-    linstor_trap_and_log 2 \
-        "resource-definition delete $TMP_RES --async"
+    LINSTOR_CLEANUP_RD+=" $TMP_RES"
     linstor_exec_and_log \
         "snapshot volume-definition restore --from-resource $SRC_RES --from-snapshot $SNAPSHOT --to-resource $TMP_RES"
     linstor_exec_and_log \
         "snapshot resource restore --from-resource $SRC_RES --from-snapshot $SNAPSHOT --to-resource $TMP_RES"
     
-    # Attach diskless resources on SRC_RES side
-    TMP_RES_NODES=$(linstor_get_hosts_for_res "$TMP_RES")
-    if ! [[ " $TMP_RES_NODES " =~ " $SRC_HOST " ]]; then
+    # Attach diskless resources for TMP_RES on SRC_HOST
+    TMP_RES_HOSTS=$(linstor_get_hosts_for_res "$TMP_RES")
+    if ! [[ " $TMP_RES_HOSTS " =~ " $SRC_HOST " ]]; then
         linstor_exec_and_log \
             "resource create -s $DISKLESS_POOL $SRC_HOST $TMP_RES"
-        linstor_trap_and_log_no_error 2 \
-            "resource delete $TMP_RES --async"
+        LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
     fi
     
     # Clone image from TMP_RES to DST_RES
     ssh_exec_and_log "$SRC_HOST" \
         "$QEMU_IMG convert -O raw $TMP_DEV $DST_DEV" \
         "Error cloning $TMP_DEV to $DST_DEV on $SRC_HOST"
-    
-    # Remove 'resource-definition delete' trap
-    linstor_remove_trap 0
 
-    linstor_exec_and_log \
-        "$LINSTOR resource-definition delete $TMP_RES --async" 
+    # Leave only TMP_RES in LINSTOR_CLEANUP_RD
+    LINSTOR_CLEANUP_RD=$TMP_RES
+    exit 0
 fi
-
-exit 0
