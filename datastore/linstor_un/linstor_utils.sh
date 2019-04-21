@@ -47,6 +47,7 @@ linstor_vd_size() {
 #   - DO_NOT_PLACE_WITH
 #   - DO_NOT_PLACE_WITH_REGEX
 #   - LAYER_LIST
+#   - PROVIDERS
 #   - ENCRYPTION
 #   Sets environment variables:
 #   - LINSTOR
