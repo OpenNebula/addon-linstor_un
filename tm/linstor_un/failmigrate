@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # -------------------------------------------------------------------------- #
 # Copyright 2002-2019, OpenNebula Project, OpenNebula Systems                #
@@ -15,5 +15,88 @@
 # See the License for the specific language governing permissions and        #
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
+
+# FAILMIGRATE SOURCE DST remote_system_dir vmid dsid template
+#  - SOURCE is the host where the VM is running
+#  - DST is the host where the VM is to be migrated
+#  - remote_system_dir is the path for the VM home in the system datastore
+#  - vmid is the id of the VM
+#  - dsid is the target datastore
+#  - template is the template of the VM in XML and base64 encoded
+
+SRC_HOST=$1
+DST_HOST=$2
+
+DST_PATH=$3
+
+VMID=$4
+DSID=$5
+
+TEMPLATE_64=$6
+
+#--------------------------------------------------------------------------------
+
+if [ -z "${ONE_LOCATION}" ]; then
+    TMCOMMON=/var/lib/one/remotes/tm/tm_common.sh
+else
+    TMCOMMON=$ONE_LOCATION/var/remotes/tm/tm_common.sh
+fi
+
+DRIVER_PATH=$(dirname $0)
+
+source $TMCOMMON
+source ${DRIVER_PATH}/../../datastore/libfs.sh
+source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
+source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
+
+
+#--------------------------------------------------------------------------------
+
+if [ "$SRC_HOST" == "$DST_HOST" ]; then
+    log "Not moving $SRC_HOST to $DST_HOST, they are the same host"
+    exit 0
+fi
+
+#--------------------------------------------------------------------------------
+
+if [ -n "$7" ]; then
+    log "Called from tm/$7 but I've nothing to do"
+    exit 0
+fi
+
+#--------------------------------------------------------------------------------
+
+XPATH="${DRIVER_PATH}/../../datastore/xpath.rb --stdin"
+
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <(onedatastore show -x $DSID | $XPATH \
+                    /DATASTORE/TEMPLATE/LS_CONTROLLERS)
+
+LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+
+linstor_load_keys
+
+VM_RESOURCES=$(linstor_get_res_for_vmid "${VMID}")
+for SRC_RES in $VM_RESOURCES; do
+
+    # Unset allow-two-primaries
+    linstor_exec_and_log \
+        "resource-definition set-property $SRC_RES DrbdOptions/Net/allow-two-primaries"
+
+    # Detach diskless resources
+    SRC_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$SRC_RES")
+    if [[ " $SRC_RES_DISKLESS_HOSTS " =~ " $SRC_HOST " ]]; then
+        linstor_exec_and_log \
+            "resource delete $SRC_HOST $SRC_RES --async"
+    fi
+    if [[ " $SRC_RES_DISKLESS_HOSTS " =~ " $DST_HOST " ]]; then
+        linstor_exec_and_log \
+            "resource delete $DST_HOST $SRC_RES --async"
+    fi
+
+done
 
 exit 0
