@@ -243,7 +243,7 @@ function linstor_cleanup_trap {
             "resource-definition delete $RES --async"
     done
 
-    for NODE_RES in $LINSTOR_CLEANUP_R; do
+    for NODE_RES in $LINSTOR_CLEANUP_RES; do
         if ! [[ " $LINSTOR_CLEANUP_RD " =~ " $RES " ]]; then
             break
         fi

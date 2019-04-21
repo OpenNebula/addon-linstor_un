@@ -155,7 +155,7 @@ EOF
 )
 
 ssh_exec_and_log "$SRC_HOST" "$IMPORT_CMD" \
-    "Error importing $DST_DEV on $SRC_HOST"
+    "Error importing $DST_PATH to $DST_DEV on $SRC_HOST"
 
 LINSTOR_CLEANUP_RD=
 exit 0

@@ -68,8 +68,8 @@ linstor_load_keys
 # Get Image information
 #-------------------------------------------------------------------------------
 
-SRC_PATH=`arg_path $SRC`
-SRC_RES="$(echo "$SRC_PATH" | $AWK -F/ '{print $(NF-1)}')"
+SRC_DEV=`arg_path $SRC`
+SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
 DST_PATH=`arg_path $DST`
 DST_DIR=`dirname $DST_PATH`
 
@@ -89,11 +89,11 @@ LINK_CMD=$(cat <<EOF
     set -e -o pipefail
     mkdir -p $DST_DIR
     rm -f $DST_PATH
-    ln -s $SRC_PATH $DST_PATH
+    ln -s $SRC_DEV $DST_PATH
 EOF
 )
 
 ssh_exec_and_log "$DST_HOST" "$LINK_CMD" \
-    "Error linking $SRC_PATH to $DST_PATH on $DST_HOST"
+    "Error linking $SRC_DEV to $DST_PATH on $DST_HOST"
 
 exit 0

@@ -63,9 +63,10 @@ linstor_load_keys
 
 DISK_ID=$(echo $SRC | $AWK -F. '{print $NF}')
 
+DST_DEV="$DST"
 SRC_PATH=`arg_path $SRC`
 SRC_HOST=`arg_host $SRC`
-DST_RES="$(echo "$DST" | $AWK -F/ '{print $(NF-1)}')"
+DST_RES="$(echo "$DST_DEV" | $AWK -F/ '{print $(NF-1)}')"
 
 #-------------------------------------------------------------------------------
 # Unlink the image

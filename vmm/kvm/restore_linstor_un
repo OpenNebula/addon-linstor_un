@@ -109,7 +109,7 @@ fi
 
 ssh_exec_and_log "$DST_HOST" \
     "$QEMU_IMG convert -O raw $SRC_DEV $SRC_PATH" \
-    "Error importing $SRC_DEV on $DST_HOST"
+    "Error importing $SRC_DEV to $SRC_PATH on $DST_HOST"
 
 exec_and_log \
     "$LINSTOR resource-definition delete $SRC_RES --async" \
