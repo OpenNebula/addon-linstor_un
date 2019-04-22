@@ -80,6 +80,11 @@ for MRG_SNAP_ID in $ALL_SNAP_IDS; do
             "snapshot rollback $SRC_RES $SNAPSHOT"
     fi
 
+    # Remove snapshot from monitoring
+    linstor_exec_and_log \
+        "resource-definition set-property $SRC_RES Aux/one/SNAPSHOT_${MRG_SNAP_ID}/DISK_SIZE"
+
+    # Remove snapshot
     linstor_exec_and_log \
         "--warn-as-error snapshot delete $SRC_RES $SNAPSHOT"
 
