@@ -91,8 +91,28 @@ DST_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
 
 log "Deleting $DST_RES"
 
+ALL_SNAP_IDS=$(linstor_get_snaps_for_res "$SRC_RES" 1)
+
+for SNAP_ID in $ALL_SNAP_IDS; do
+
+    SNAPSHOT="snapshot-${SNAP_ID}"
+
+    # Remove snapshot from monitoring
+    linstor_exec_and_log \
+        "resource-definition set-property $SRC_RES Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE"
+
+    # Remove snapshot
+    linstor_exec_and_log \
+        "--warn-as-error snapshot delete $SRC_RES $SNAPSHOT"
+
+done
+
+# Remove resource
 linstor_exec_and_log \
     "--warn-as-error resource-definition delete $DST_RES"
 
+# Unlink resource
 ssh_exec_and_log "$DST_HOST" "rm -f $DST_PATH" \
     "Error unlinking $DST_PATH"
+
+exit 0

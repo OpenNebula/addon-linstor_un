@@ -151,6 +151,27 @@ function linstor_get_hosts_for_res {
 }
 
 #-------------------------------------------------------------------------------
+# Gets snapshots for resource
+#   @param $1 - the resource name (to search)
+#   @param $2 - enable reverse sorting (1 - yes, 0 - no)
+#   @return snapshot ID list for the resource
+#-------------------------------------------------------------------------------
+function linstor_get_snaps_for_res {
+    local RES="$1"
+    case "$2" in
+        1) local SORT_FLAGS=nr ;;
+        *) local SORT_FLAGS=n ;;
+    esac
+
+    $LINSTOR -m snapshot list | \
+        $JQ -r ".[].snapshot_dfns[] | \
+        select(.rsc_name==\"${RES}\") | .snapshot_name" | \
+        $AWK -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | \
+        sort -${SORT_FLAGS} | \
+        xargs
+}
+
+#-------------------------------------------------------------------------------
 # Gets the hosts list contains resource
 #   @param $1 - the resource name (to search)
 #   @return hosts list contains the resource
