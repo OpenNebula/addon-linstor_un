@@ -61,6 +61,11 @@ linstor_load_keys
 
 SNAPSHOT="snapshot-${SNAP_ID}"
 
+# Remove snapshot from monitoring
+linstor_exec_and_log \
+    "resource-definition set-property $SRC_RES Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE"
+
+# Remove snapshot
 linstor_exec_and_log \
     "--warn-as-error snapshot delete $SRC_RES $SNAPSHOT"
 

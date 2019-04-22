@@ -26,6 +26,60 @@ linstor_monitor_storpool() {
         END{ printf "USED_MB=%0.f\nTOTAL_MB=%0.f\nFREE_MB=%0.f\n", total-free, total, free }'
 }
 
+#--------------------------------------------------------------------------------
+# Parse the output of linstor resource-definition list in json format and
+# generates a monitor strings for every VM.
+# You **MUST** define JQ util before using this function
+#   @param $1 the json output of the command
+#--------------------------------------------------------------------------------
+linstor_monitor_resources() {
+    local RES_SIZES_DATA=$($LINSTOR -m resource list | \
+        $JQ '.[].resources[] | {res: .name, size: .vlms[0].allocated}' )
+    RES_SIZES_STATUS=$?
+    if [ $RES_SIZES_STATUS -ne 0 ]; then
+        echo "$RES_SIZES_DATA"
+        exit $RES_SIZES_STATUS
+    fi
+
+    while read VM_JSON; do
+        # {
+        #   <vmid>: [
+        #     { <disk_id>: {res: <res_name>, props: []} },
+        #     ...
+        #   ]
+        # }
+        local VMID=$(echo "$VM_JSON" | $JQ -r '. | keys[0]')
+        echo -n "VM=[ID=$VMID,POLL=\""
+            while read DISK_JSON; do
+                local DISK_ID=$(echo "$DISK_JSON" | $JQ -r '. | keys[]')
+                local RES=$(echo "$DISK_JSON" | $JQ -r '.[].res')
+                local DISK_SIZE_K=$(echo "$RES_SIZES_DATA" | $JQ -r "select(.res==\"${RES}\").size" | sort -n | tail -n1)
+                local DISK_SIZE=$((DISK_SIZE_K/1024))
+                local SNAP_IDS=$(echo "$DISK_JSON" | $JQ -r '.[].props[].key' | sed -n 's|Aux/one/SNAPSHOT_\([0-9]\+\)/DISK_SIZE|\1|p' | sort -nr | xargs)
+
+                echo -n "DISK_SIZE=[ID=${DISK_ID},SIZE=${DISK_SIZE}] "
+
+                # From last to first
+                for SNAP_ID in $SNAP_IDS; do
+                    local SNAP_DISK_SIZE_K=$(echo "$DISK_JSON" | $JQ -r ".[].props | from_entries.\"Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE\"")
+                    local SNAP_DISK_SIZE=$((LINSTOR_SNAP_DISK_SIZE_K/1024))
+                    local SNAP_SIZE=$((DISK_SIZE-SNAP_DISK_SIZE))
+                    echo -n "SNAPSHOT_SIZE=[ID=${SNAP_ID},DISK_ID=${DISK_ID},SIZE=${SNAP_SIZE}] "
+                    # Subtract next snapshot from current one
+                    local DISK_SIZE="$SNAP_DISK_SIZE"
+                done
+
+            done < <(echo "${VM_JSON}" | $JQ -c ".\"${VMID}\"[]")
+        echo "\"]"
+    done < <(echo "$1" | $JQ -c '[(
+        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props[].key=="Aux/one/VMID") |
+        {vmid: (.rsc_dfn_props | from_entries."Aux/one/VMID"),
+        disk_id: (.rsc_dfn_props | from_entries."Aux/one/DISK_ID"),
+        res: .rsc_name,
+        props: ([.rsc_dfn_props[]| select(.key | startswith("Aux/one"))])}
+        )] |
+        group_by(.vmid)[] | {(.[0].vmid): [.[] | {(.disk_id): {res: .res, props: .props}}]}')
+}
 
 #--------------------------------------------------------------------------------
 # Getting volume size from linstor server
@@ -93,6 +147,27 @@ function linstor_get_hosts_for_res {
     local RES="$1"
     $LINSTOR -m resource list -r $RES | \
         $JQ -r '.[].resources[].node_name' | \
+        xargs
+}
+
+#-------------------------------------------------------------------------------
+# Gets snapshots for resource
+#   @param $1 - the resource name (to search)
+#   @param $2 - enable reverse sorting (1 - yes, 0 - no)
+#   @return snapshot ID list for the resource
+#-------------------------------------------------------------------------------
+function linstor_get_snaps_for_res {
+    local RES="$1"
+    case "$2" in
+        1) local SORT_FLAGS=nr ;;
+        *) local SORT_FLAGS=n ;;
+    esac
+
+    $LINSTOR -m snapshot list | \
+        $JQ -r ".[].snapshot_dfns[] | \
+        select(.rsc_name==\"${RES}\") | .snapshot_name" | \
+        $AWK -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | \
+        sort -${SORT_FLAGS} | \
         xargs
 }
 
