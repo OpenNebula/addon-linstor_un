@@ -3,9 +3,9 @@
 ## Requirements
 
 * Installed `jq` and `linstor` on the OpenNebula frontend.
-* Configured linstor cluster
+* Configured linstor cluster and access to it from OpenNebula frontend.
 
-## Installation
+## OpenNebula Installation
 
 * Copy [vmm overriders](vmm/kvm) to `/var/lib/one/remotes/vmm/kvm/`
 * Copy [datastore drivers](datastore/linstor_un) to `/var/lib/one/remotes/datastore/linstor_un`
@@ -72,24 +72,47 @@ DS_MAD_CONF = [
 +LIVE_DISK_SNAPSHOTS="kvm-qcow2 kvm-ceph kvm-linstor_un"
 ```
 
-## Configuration
+## OpenNebula Configuration
 
-Example images datastore:
+To use your Ceph cluster with the OpenNebula, you need to define a System and Image datastores. Each Image/System Datastore pair will share same following Ceph configuration attributes:
+
+| Attribute                 | Description                                                                                                      | Mandatory |
+|---------------------------|------------------------------------------------------------------------------------------------------------------|-----------|
+| `NAME`                    | The name of the datastore                                                                                        | **YES**   |
+| `CLONE_MODE`              | `snapshot` - will create snapshot for instantiate VMs. `copy` - create full copy of image, this is default mode. | NO        |
+| `BRIDGE_LIST`             | Space separated hosts list used for transfer operations. Copy data between images and etc.                       | **YES**   |
+| `LS_CONTROLLERS`          | Comma separated linstor controllers list for establish connection.                                               | NO        |
+| `NODE_LIST`               | Space separated hosts list to place replicas. Replicas will always be created on all these hosts.                | **YES** * |
+| `LAYER_LIST`              | Comma separated layer list to place replicas.                                                                    | NO        |
+| `PROVIDERS`               | Comma separated providers list to place replicas.                                                                | NO        |
+| `REPLICAS_ON_SAME`        | Space separated aux-properties list to always place replicas on hosts with same aux-property.                    | NO        |
+| `REPLICAS_ON_DIFFERENT`   | Space separated aux-properties list to always place replicas on hosts with different aux-property.               | NO        |
+| `AUTO_PLACE`              | Number of replicas for creating new volumes.                                                                     | **YES** * |
+| `CHECKPOINT_AUTO_PLACE`   | Number of replicas for save checkpoint file for suspend and offline migration process.                           | NO        |
+| `DO_NOT_PLACE_WITH`       | Space separated resources list to avid placing replicas on same place with them.                                 | NO        |
+| `DO_NOT_PLACE_WITH_REGEX` | Regular expression to avoid placing replicas on same place with targeted resources.                              | NO        |
+| `STORAGE_POOL`            | Storage pool name to place replicas.                                                                             | **YES**   |
+| `DISKLESS_POOL`           | Diskless pool to place diskless replicas. Default: `DfltDisklessStorPool`.                                       | NO        |
+| `ENCRYPTION`              | `yes` - will enable encryption during volume creation. | NO                                                      |           |
+
+*\* - only one attribute required*
+
+> **Note**: You may add another Image and System Datastores pointing to other pools with different allocation/replication policies in Linstor.
+
+
+### Create a System Datastore
+
+System Datastore also requires these attributes:
+
+| Attribute | Description  | Mandatory |
+|-----------|--------------|-----------|
+| `TYPE`    | `SYSTEM_DS`  | **YES**   |
+| `TM_MAD`  | `linstor_un` | **YES**   |
+
+Create a System Datastore in Sunstone or through the CLI, for example:
 
 ```
-NAME="linstor-images"
-TYPE="IMAGE_DS"
-STORAGE_POOL="data"
-AUTO_PLACE="2"
-BRIDGE_LIST="node1 node2 node3"
-DISK_TYPE="BLOCK"
-DS_MAD="linstor_un"
-TM_MAD="linstor_un"
-```
-
-Example system datastore:
-
-```
+cat > system-ds.conf <<EOT
 NAME="linstor-system"
 TYPE="SYSTEM_DS"
 STORAGE_POOL="data"
@@ -98,4 +121,37 @@ CHECKPOINT_AUTO_PLACE="1"
 BRIDGE_LIST="node1 node2 node3"
 DISK_TYPE="BLOCK"
 TM_MAD="linstor_un"
+EOF
+
+onedatastore create -f system-ds.conf
+```
+
+### Create an Image Datastore
+
+Apart from the previous attributes, that need to be the same as the associated System Datastore, the following can be set for an Image Datastore:
+
+
+| Attribute     | Description                                           | Mandatory |
+|---------------|-------------------------------------------------------|-----------|
+| `NAME`        | The name of the datastore                             | **YES**   |
+| `DS_MAD`      | `linstor_un`                                          | **YES**   |
+| `TM_MAD`      | `linstor_un`                                          | **YES**   |
+| `DISK_TYPE`   | `BLOCK`                                               | **YES**   |
+| `STAGING_DIR` | Default path for image operations in the bridges      | NO        |
+
+An example of datastore:
+
+```
+cat > images-ds.conf <<EOT
+NAME="linstor-images"
+TYPE="IMAGE_DS"
+STORAGE_POOL="data"
+AUTO_PLACE="2"
+BRIDGE_LIST="node1 node2 node3"
+DISK_TYPE="BLOCK"
+DS_MAD="linstor_un"
+TM_MAD="linstor_un"
+EOF
+
+onedatastore create -f system-ds.conf
 ```
