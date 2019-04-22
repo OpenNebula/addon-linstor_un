@@ -84,6 +84,12 @@ ssh_exec_and_log "$SRC_HOST" \
     "rm -f $SRC_PATH" \
     "Error unlinking $SRC_PATH on $SRC_HOST"
 
+# Remove drive from monitoring
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/VMID"
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/DISK_ID"
+
 # Set allow-two-primaries=yes
 linstor_exec_and_log \
     "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"

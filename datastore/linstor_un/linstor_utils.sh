@@ -26,6 +26,49 @@ linstor_monitor_storpool() {
         END{ printf "USED_MB=%0.f\nTOTAL_MB=%0.f\nFREE_MB=%0.f\n", total-free, total, free }'
 }
 
+#--------------------------------------------------------------------------------
+# Parse the output of linstor resource-definition list in json format and
+# generates a monitor strings for every VM.
+# You **MUST** define JQ util before using this function
+#   @param $1 the json output of the command
+#--------------------------------------------------------------------------------
+linstor_monitor_resources() {
+    local RES_SIZES_DATA=$($LINSTOR -m resource list | \
+        jq '.[].resources[] | {res: .name, size: .vlms[0].allocated}' )
+    RES_SIZES_STATUS=$?
+    if [ $RES_SIZES_STATUS -ne 0 ]; then
+        echo "$RES_SIZES_DATA"
+        exit $RES_SIZES_STATUS
+    fi
+
+    while read VM_JSON; do
+        # {
+        #   <vmid>: [
+        #     { <disk_id>: {res: <res_name>, props: []} },
+        #     ...
+        #   ]
+        # }
+        local VMID=$(echo "$VM_JSON" | jq -r '. | keys[0]')
+        echo -n "VM=[ID=$VMID,POLL=\""
+            while read DISK_JSON; do
+                local DISK_ID=$(echo $DISK_JSON | jq -r '. | keys[]')
+                local RES=$(echo $DISK_JSON | jq -r '.[].res')
+                local LINSTOR_DISK_SIZE=$(echo "$RES_SIZES_DATA" | jq -r "select(.res==\"${RES}\").size" | sort -n | tail -n1 )
+                local DISK_SIZE=$((LINSTOR_DISK_SIZE/10240))
+
+                echo -n "DISK_SIZE=[ID=${DISK_ID},SIZE=${DISK_SIZE}] "
+
+            done < <(echo "${VM_JSON}" | jq -c ".\"${VMID}\"[]")
+        echo "\"]"
+    done < <(echo "$1" | $JQ -c '[(
+        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props[].key=="Aux/one/VMID") |
+        {vmid: (.rsc_dfn_props | from_entries."Aux/one/VMID"),
+        disk_id: (.rsc_dfn_props | from_entries."Aux/one/DISK_ID"),
+        res: .rsc_name,
+        props: (.rsc_dfn_props | from_entries)}
+        )] |
+        group_by(.vmid)[] | {(.[0].vmid): [.[] | {(.disk_id): {res: .res, props: .props}}]}')
+}
 
 #--------------------------------------------------------------------------------
 # Getting volume size from linstor server
