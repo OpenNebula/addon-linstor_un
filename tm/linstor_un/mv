@@ -155,13 +155,6 @@ if [ `is_disk $SRC_PATH` -eq 1 ]; then
         exit 0
     fi
 
-    # copy volume between datastores
-    if [ "${SRC_PATH}" != "${DST_PATH}" ]; then
-        # TODO: implement copying between datastores
-        error_message "Copying between datastores not implemented yet"
-        exit -1
-    fi
-
     DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
 
     # Attach diskless resource on destination host
