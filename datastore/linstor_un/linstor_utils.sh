@@ -34,7 +34,7 @@ linstor_monitor_storpool() {
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
     local RES_SIZES_DATA=$($LINSTOR -m resource list | \
-        jq '.[].resources[] | {res: .name, size: .vlms[0].allocated}' )
+        $JQ '.[].resources[] | {res: .name, size: .vlms[0].allocated}' )
     RES_SIZES_STATUS=$?
     if [ $RES_SIZES_STATUS -ne 0 ]; then
         echo "$RES_SIZES_DATA"
@@ -48,20 +48,20 @@ linstor_monitor_resources() {
         #     ...
         #   ]
         # }
-        local VMID=$(echo "$VM_JSON" | jq -r '. | keys[0]')
+        local VMID=$(echo "$VM_JSON" | $JQ -r '. | keys[0]')
         echo -n "VM=[ID=$VMID,POLL=\""
             while read DISK_JSON; do
-                local DISK_ID=$(echo $DISK_JSON | jq -r '. | keys[]')
-                local RES=$(echo $DISK_JSON | jq -r '.[].res')
-                local DISK_SIZE_K=$(echo "$RES_SIZES_DATA" | jq -r "select(.res==\"${RES}\").size" | sort -n | tail -n1 )
+                local DISK_ID=$(echo "$DISK_JSON" | $JQ -r '. | keys[]')
+                local RES=$(echo "$DISK_JSON" | $JQ -r '.[].res')
+                local DISK_SIZE_K=$(echo "$RES_SIZES_DATA" | $JQ -r "select(.res==\"${RES}\").size" | sort -n | tail -n1)
                 local DISK_SIZE=$((DISK_SIZE_K/1024))
-                local SNAP_IDS=$(echo $DISK_JSON | jq -r '.[].props[].key' | sed -n 's|Aux/one/SNAPSHOT_\([0-9]\+\)/DISK_SIZE|\1|p' | sort -nr | xargs)
+                local SNAP_IDS=$(echo "$DISK_JSON" | $JQ -r '.[].props[].key' | sed -n 's|Aux/one/SNAPSHOT_\([0-9]\+\)/DISK_SIZE|\1|p' | sort -nr | xargs)
 
                 echo -n "DISK_SIZE=[ID=${DISK_ID},SIZE=${DISK_SIZE}] "
 
                 # From last to first
                 for SNAP_ID in $SNAP_IDS; do
-                    local SNAP_DISK_SIZE_K=$(echo "$DISK_JSON" | jq -r ".[].props | from_entries.\"Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE\"")
+                    local SNAP_DISK_SIZE_K=$(echo "$DISK_JSON" | $JQ -r ".[].props | from_entries.\"Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE\"")
                     local SNAP_DISK_SIZE=$((LINSTOR_SNAP_DISK_SIZE_K/1024))
                     local SNAP_SIZE=$((DISK_SIZE-SNAP_DISK_SIZE))
                     echo -n "SNAPSHOT_SIZE=[ID=${SNAP_ID},DISK_ID=${DISK_ID},SIZE=${SNAP_SIZE}] "
@@ -69,7 +69,7 @@ linstor_monitor_resources() {
                     local DISK_SIZE="$SNAP_DISK_SIZE"
                 done
 
-            done < <(echo "${VM_JSON}" | jq -c ".\"${VMID}\"[]")
+            done < <(echo "${VM_JSON}" | $JQ -c ".\"${VMID}\"[]")
         echo "\"]"
     done < <(echo "$1" | $JQ -c '[(
         .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props[].key=="Aux/one/VMID") |
