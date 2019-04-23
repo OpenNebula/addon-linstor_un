@@ -75,7 +75,8 @@ Add new **TM_MAD_CONF** section:
 
 ```
 TM_MAD_CONF = [
-    name = "linstor_un", ln_target = "NONE", clone_target = "SELF", shared = "yes", ALLOW_ORPHANS="yes"
+    NAME = "linstor_un", LN_TARGET = "NONE", CLONE_TARGET = "SELF", SHARED = "yes",
+    DS_MIGRATE = "YES", DRIVER = "raw", ALLOW_ORPHANS="yes"
 ]
 ```
 
