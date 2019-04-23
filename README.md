@@ -2,19 +2,19 @@
 
 ## Description
 
-Community driven full-feature Linstor storage driver implementation for OpenNebula
+Community driven full-feature Linstor storage driver for OpenNebula
 
 ### Comparsion to addon-linstor
 
 Why not simple use [official Linstor driver](https://github.com/OpenNebula/addon-linstor)? I was try official Linstor driver for OpenNebula before I made decidion to write my own implementation. And I didn't liked it because of the some reasons, most of them are listed here:
 
-* Bash-written
+* Bash-written.
   Unlike official Linstor driver which is written on python, this driver is written on bash. Any driver action is just a conventional bash script, which is calling standard shell-commands, these scripts can be easily updated or extended.
 * Uses OpenNebula native library
-  This driver uses standard OpenNebula library which is provides simplicity to developing and debugging driver scrubs, e.g. you will always see what exactly command was unsuccessful from the VM log, if something went wrong.
+  This driver uses standard OpenNebula library which is provides simplicity to developing and debugging driver actions, e.g. you will always see what exactly command was unsuccessful from the VM log, if something went wrong.
 * Does not requires external dependings.
   Official driver requires configured linstor-client and extra python-bindings on every compute node. This driver have central managment model from the OpenNebula frontend node, so it requires only `jq` and `linstor-client` installed on the frontend node, and nothing external components installed on compute nodes. Worth noting you still need linstor-satellite and drbd9 module to build linstor-cluster.
-* Can work with newer versions of OpenNebula and supports modern features like **REPLICAS_ON_SAME**, **REPLICAS_ON_DIFFERENT** and etc.
+* Can work with newer versions of OpenNebula and supports modern linstor features like **REPLICAS_ON_SAME**, **REPLICAS_ON_DIFFERENT** and others.
 * Can work with any backend, even without snapshots support.
 
 ## Compatibility
@@ -26,8 +26,8 @@ This add-on is compatible with OpenNebula 5.6+
 ### Requirements
 
 * Installed `jq` and `linstor` on the OpenNebula frontend.
-* Configured linstor cluster and access to it from OpenNebula frontend.
-* All OpenNebula hosts must be part of this cluster.
+* Configured Linstor cluster and access to it from the OpenNebula frontend server.
+* All OpenNebula hosts should have DRBD9 module installed and be registred in Linstor cluster as satellite nodes.
 
 ### Installation steps
 
@@ -136,7 +136,7 @@ System Datastore also requires these attributes:
 
 Create a System Datastore in Sunstone or through the CLI, for example:
 
-```
+```bash
 cat > system-ds.conf <<EOT
 NAME="linstor-system"
 TYPE="SYSTEM_DS"
@@ -144,11 +144,10 @@ STORAGE_POOL="data"
 AUTO_PLACE="2"
 CHECKPOINT_AUTO_PLACE="1"
 BRIDGE_LIST="node1 node2 node3"
-DISK_TYPE="BLOCK"
 TM_MAD="linstor_un"
-EOF
+EOT
 
-onedatastore create -f system-ds.conf
+onedatastore create system-ds.conf
 ```
 
 ### Create an Image Datastore
@@ -166,7 +165,7 @@ Apart from the previous attributes, that need to be the same as the associated S
 
 An example of datastore:
 
-```
+```bash
 cat > images-ds.conf <<EOT
 NAME="linstor-images"
 TYPE="IMAGE_DS"
@@ -176,9 +175,9 @@ BRIDGE_LIST="node1 node2 node3"
 DISK_TYPE="BLOCK"
 DS_MAD="linstor_un"
 TM_MAD="linstor_un"
-EOF
+EOT
 
-onedatastore create -f system-ds.conf
+onedatastore create images-ds.conf
 ```
 
 ## Development
@@ -189,7 +188,7 @@ More info:
 * [How to Contribute](http://opennebula.org/addons/contribute/)
 * Support: [OpenNebula user forum](https://forum.opennebula.org/c/support)
 * Development: [OpenNebula developers forum](https://forum.opennebula.org/c/development)
-* Issues Tracking: Github issues (https://github.com/kvaps/opennebula-addon-linstor_un/issues)
+* Issues Tracking: [Github issues](https://github.com/OpenNebula/addon-linstor_un/issues)
 
 ## Author
 
