@@ -40,7 +40,7 @@ source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
 # -------- Get datastore arguments from OpenNebula core ------------
 
 DRV_ACTION=$1
-ID=$2
+DS_ID=$2
 
 XPATH="${DRIVER_PATH}/../../datastore/xpath.rb -b $DRV_ACTION"
 
@@ -89,7 +89,7 @@ MONITOR_DATA="$(monitor_and_log "$MONITOR_SCRIPT" 2>&1)"
 MONITOR_STATUS=$?
 
 if [ "$MONITOR_STATUS" = "0" ]; then
-    echo -e "$(linstor_monitor_resources "${MONITOR_DATA}")"
+    echo -e "$(linstor_monitor_resources "${MONITOR_DATA}" "${DS_ID}")"
 else
     echo "$MONITOR_DATA"
     exit $MONITOR_STATUS

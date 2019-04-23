@@ -93,7 +93,7 @@ EOF
 ssh_exec_and_log "$SRC_HOST" "$TAR_SSH" \
     "Error copying disk directory to target host"
 
-VM_RESOURCES=$(linstor_get_res_for_vmid "${VMID}")
+VM_RESOURCES=$(linstor_get_res_for_property Aux/one/VM_ID $VMID)
 for DST_RES in $VM_RESOURCES; do
 
     # Attach diskless resource on destination host

@@ -31,8 +31,10 @@ linstor_monitor_storpool() {
 # json format and generates a monitor strings for every VM.
 # You **MUST** define JQ util before using this function
 #   @param $1 the json output of the command
+#   @param $2 the ID of system datastore (to monitor)
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
+    local DS_SYS_ID=$2
     local RES_SIZES_DATA=$($LINSTOR -m --output-version v1 resource list-volumes | \
         $JQ '.[].resources[]? | {res: .name, size: .vlms[0].allocated_size}' )
     RES_SIZES_STATUS=$?
@@ -71,14 +73,14 @@ linstor_monitor_resources() {
 
             done < <(echo "${VM_JSON}" | $JQ -c ".\"${VM_ID}\"[]")
         echo "\"]"
-    done < <(echo "$1" | $JQ -c '[(
-        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props[].key=="Aux/one/VM_ID") |
-        {vmid: (.rsc_dfn_props | from_entries."Aux/one/VM_ID"),
-        disk_id: (.rsc_dfn_props | from_entries."Aux/one/DISK_ID"),
+    done < <(echo "$1" | $JQ -c "[(
+        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props | from_entries | select(.\"Aux/one/DS_SYS_ID\"==\"$DS_SYS_ID\")) |
+        {vmid: (.rsc_dfn_props | from_entries.\"Aux/one/VM_ID\"),
+        disk_id: (.rsc_dfn_props | from_entries.\"Aux/one/DISK_ID\"),
         res: .rsc_name,
-        props: ([.rsc_dfn_props[]| select(.key | startswith("Aux/one"))])}
+        props: ([.rsc_dfn_props[]| select(.key | startswith(\"Aux/one\"))])}
         )] |
-        group_by(.vmid)[] | {(.[0].vmid): [.[] | {(.disk_id): {res: .res, props: .props}}]}')
+        group_by(.vmid)[] | {(.[0].vmid): [.[] | {(.disk_id): {res: .res, props: .props}}]}")
 }
 
 #--------------------------------------------------------------------------------
@@ -231,12 +233,15 @@ function linstor_get_bridge_host_for_res {
 
 
 #-------------------------------------------------------------------------------
-# Gets the non-persistent drive resources list used for the virtual machine
-#   @param $1 - the vmid (to search)
-#   @return list of resources belongs to the VM
+# Gets the linstor resources with specific property assigned to it
+#   @param $1 - property name (to search)
+#   @param $2 - value
+#   @return list of resources belongs to this key=value
 #-------------------------------------------------------------------------------
-function linstor_get_res_for_vmid {
-    local VMID="$1"
+function linstor_get_res_for_property {
+    local PROPERTY="$1"
+    local VALUE="$2"
+
     local RD_DATA="$($LINSTOR -m --output-version v1 resource-definition list)"
     if [ $? -ne 0 ]; then
         echo "Error getting resource-definition list"
@@ -244,10 +249,11 @@ function linstor_get_res_for_vmid {
     fi
 
     echo "$RD_DATA" | \
-        $JQ -r ".[].rsc_dfns[].rsc_name |
-        select(. | test(\"^one-vm-${VMID}-disk-[0-9]+$\"))"
+        $JQ -r ".[].rsc_dfns[]? | select(
+        select(.rsc_dfn_props).rsc_dfn_props |
+        from_entries | select(.\"${PROPERTY}\"==\"${VALUE}\"
+        )).rsc_name"
 }
-
 
 #-------------------------------------------------------------------------------
 # Executes a linstor command, if it fails returns error message but does not exit
