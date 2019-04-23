@@ -48,8 +48,7 @@ unset i j XPATH_ELEMENTS
 
 while IFS= read -r -d '' element; do
     XPATH_ELEMENTS[i++]="$element"
-done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/ID \
-                    /DS_DRIVER_ACTION_DATA/DATASTORE/BASE_PATH \
+done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/BASE_PATH \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/RESTRICTED_DIRS \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/BRIDGE_LIST \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/STAGING_DIR \
@@ -68,7 +67,6 @@ done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/ID \
                     /DS_DRIVER_ACTION_DATA/IMAGE/PATH \
                     /DS_DRIVER_ACTION_DATA/IMAGE/SIZE)
 
-DS_ID="${XPATH_ELEMENTS[j++]}"
 BASE_PATH="${XPATH_ELEMENTS[j++]}"
 RESTRICTED_DIRS="${XPATH_ELEMENTS[j++]}"
 BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
@@ -134,8 +132,6 @@ linstor_exec_and_log \
 # Set properties
 linstor_exec_and_log \
     "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"
-linstor_exec_and_log \
-    "resource-definition set-property $DST_RES Aux/one/DS_ID $DS_ID"
 
 SRC_RES_HOSTS=$(linstor_get_hosts_for_res "$SRC_RES")
 DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")

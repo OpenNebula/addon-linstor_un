@@ -34,7 +34,7 @@ linstor_monitor_storpool() {
 #   @param $2 the ID of system datastore (to monitor)
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
-    local DS_SYS_ID=$2
+    local DS_ID=$2
     local RES_SIZES_DATA=$($LINSTOR -m --output-version v1 resource list-volumes | \
         $JQ '.[].resources[]? | {res: .name, size: .vlms[0].allocated_size}' )
     RES_SIZES_STATUS=$?
@@ -74,7 +74,7 @@ linstor_monitor_resources() {
             done < <(echo "${VM_JSON}" | $JQ -c ".\"${VM_ID}\"[]")
         echo "\"]"
     done < <(echo "$1" | $JQ -c "[(
-        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props | from_entries | select(.\"Aux/one/DS_SYS_ID\"==\"$DS_SYS_ID\")) |
+        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props | from_entries | select(.\"Aux/one/DS_ID\"==\"$DS_ID\")) |
         {vmid: (.rsc_dfn_props | from_entries.\"Aux/one/VM_ID\"),
         disk_id: (.rsc_dfn_props | from_entries.\"Aux/one/DISK_ID\"),
         res: .rsc_name,
