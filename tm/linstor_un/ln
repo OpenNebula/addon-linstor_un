@@ -77,13 +77,13 @@ DST_DIR=`dirname $DST_PATH`
 # Link the image
 #-------------------------------------------------------------------------------
 
-# Unset allow-two-primaries
+# Set properties
 linstor_exec_and_log \
     "resource-definition set-property $SRC_RES DrbdOptions/Net/allow-two-primaries"
-
-# Add drive to monitoring
 linstor_exec_and_log \
     "resource-definition set-property $SRC_RES Aux/one/VM_ID $VM_ID"
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/DS_ID $DS_ID"
 linstor_exec_and_log \
     "resource-definition set-property $SRC_RES Aux/one/DISK_ID $DISK_ID"
 

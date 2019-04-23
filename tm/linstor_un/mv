@@ -155,6 +155,12 @@ if [ `is_disk $SRC_PATH` -eq 1 ]; then
         exit 0
     fi
 
+    # copy volume between datastores
+    if [ "${SRC_PATH}" != "${DST_PATH}" ]; then
+        linstor_exec_and_log \
+            "resource-definition set-property $DST_RES Aux/one/DS_ID $DSID"
+    fi
+
     DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
 
     # Attach diskless resource on destination host

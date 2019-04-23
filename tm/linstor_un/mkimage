@@ -27,6 +27,7 @@ SIZE=$1
 FSTYPE=$2
 DST=$3
 VM_ID=$4
+DS_ID=$5
 
 if [ -z "${ONE_LOCATION}" ]; then
     TMCOMMON=/var/lib/one/remotes/tm/tm_common.sh
@@ -49,7 +50,6 @@ DST_PATH=`arg_path $DST`
 DST_HOST=`arg_host $DST`
 DST_DIR=`dirname $DST_PATH`
 
-DST_DS_ID=$(echo $DST_DIR | $AWK -F/ '{print $(NF-1)}')
 DISK_ID=$(basename ${DST_PATH} | cut -d. -f2)
 DST_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
 DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
@@ -64,7 +64,7 @@ unset i j XPATH_ELEMENTS
 
 while IFS= read -r -d '' element; do
         XPATH_ELEMENTS[i++]="$element"
-done < <(onedatastore show -x $DST_DS_ID | $XPATH \
+done < <(onedatastore show -x $DS_ID | $XPATH \
                     /DATASTORE/TEMPLATE/LS_CONTROLLERS \
                     /DATASTORE/TEMPLATE/NODE_LIST \
                     /DATASTORE/TEMPLATE/LAYER_LIST \
@@ -118,9 +118,11 @@ linstor_exec_and_log \
 linstor_exec_and_log \
     "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
-# Add drive to monitoring
+# Set properties
 linstor_exec_and_log \
     "resource-definition set-property $DST_RES Aux/one/VM_ID $VM_ID"
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/DS_ID $DS_ID"
 linstor_exec_and_log \
     "resource-definition set-property $DST_RES Aux/one/DISK_ID $DISK_ID"
 

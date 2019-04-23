@@ -52,7 +52,6 @@ SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
 DST_HOST=`arg_host $DST`
 DST_PATH=`arg_path $DST`
 DST_DIR=`dirname $DST_PATH`
-DST_DS_ID=$(echo $DST_DIR | $AWK -F/ '{print $(NF-1)}')
 
 DISK_ID=$(echo $DST | awk -F. '{print $NF}')
 DST_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
@@ -83,7 +82,7 @@ unset i j XPATH_ELEMENTS
 
 while IFS= read -r -d '' element; do
         XPATH_ELEMENTS[i++]="$element"
-done < <(onedatastore show -x $DST_DS_ID | $XPATH \
+done < <(onedatastore show -x $DS_ID | $XPATH \
                     /DATASTORE/TEMPLATE/CLONE_MODE \
                     /DATASTORE/TEMPLATE/BRIDGE_LIST \
                     /DATASTORE/TEMPLATE/LS_CONTROLLERS \
@@ -160,6 +159,14 @@ else
         "snapshot resource restore --from-resource $SRC_RES --from-snapshot $DST_RES --to-resource $DST_RES"
 fi
 
+# Set properties
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/VM_ID $VM_ID"
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/DS_ID $DS_ID"
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/DISK_ID $DISK_ID"
+
 SRC_RES_HOSTS=$(linstor_get_hosts_for_res "$SRC_RES")
 DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
 
@@ -181,13 +188,6 @@ if [ "$CLONE_MODE" = "copy" ]; then
         "$QEMU_IMG convert -O raw $SRC_DEV $DST_DEV" \
         "Error cloning $SRC_DEV to $DST_DEV on $SRC_HOST"
 fi
-
-# Add drive to monitoring
-linstor_exec_and_log \
-    "resource-definition set-property $DST_RES Aux/one/VM_ID $VM_ID"
-linstor_exec_and_log \
-    "resource-definition set-property $DST_RES Aux/one/DISK_ID $DISK_ID"
-
 
 # Attach diskless resources on destination host
 if ! [[ " $DST_RES_HOSTS " =~ " $DST_HOST " ]]; then

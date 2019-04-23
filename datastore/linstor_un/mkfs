@@ -49,7 +49,8 @@ unset i j XPATH_ELEMENTS
 
 while IFS= read -r -d '' element; do
     XPATH_ELEMENTS[i++]="$element"
-done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/BASE_PATH \
+done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/ID \
+                    /DS_DRIVER_ACTION_DATA/DATASTORE/BASE_PATH \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/RESTRICTED_DIRS \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/SAFE_DIRS \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/BRIDGE_LIST \
@@ -68,6 +69,7 @@ done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/BASE_PATH \
                     /DS_DRIVER_ACTION_DATA/IMAGE/FSTYPE \
                     /DS_DRIVER_ACTION_DATA/IMAGE/SIZE)
 
+DS_ID="${XPATH_ELEMENTS[j++]}"
 BASE_PATH="${XPATH_ELEMENTS[j++]}"
 RESTRICTED_DIRS="${XPATH_ELEMENTS[j++]}"
 SAFE_DIRS="${XPATH_ELEMENTS[j++]}"
@@ -128,6 +130,12 @@ linstor_exec_and_log \
 linstor_exec_and_log \
     "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
+# Set properties
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"
+linstor_exec_and_log \
+    "resource-definition set-property $DST_RES Aux/one/DS_ID $DS_ID"
+
 if [ "$FSTYPE" != "raw" ]; then
 
     # Attach diskless resource for DST_RES on DST_HOST
@@ -142,12 +150,8 @@ if [ "$FSTYPE" != "raw" ]; then
     MKFS_CMD=`mkfs_command $DST_DEV $FSTYPE $SIZE`
     ssh_exec_and_log "$DST_HOST" "$MKFS_CMD" \
         "Unable to create filesystem $FSTYPE in $DST_HOST:$DST_DEV"
-    
-    # Set allow-two-primaries=yes
-    linstor_exec_and_log \
-        "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"
 
 fi
-
+    
 LINSTOR_CLEANUP_RD=
 echo "$DST"
