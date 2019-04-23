@@ -127,7 +127,7 @@ ssh_exec_and_log "$DST_HOST" "rm -f $DST_PATH" \
     "Error unlinking $DST_PATH"
 
 # Check if source image have snapshot (CLONE_MODE=snapshot)
-$LINSTOR -m snapshot list | \
+$LINSTOR -m --output-version v1 snapshot list | \
     $JQ -er ".[].snapshot_dfns[] |
     select(.rsc_name==\"${SRC_RES}\" and .snapshot_name==\"${DST_RES}\")" >/dev/null
 

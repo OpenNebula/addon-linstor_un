@@ -93,7 +93,7 @@ linstor_exec_and_log \
     "snapshot create $SRC_RES $SNAPSHOT"
 
 # Add snapshot to monitoring
-DISK_SIZE=$($LINSTOR -m resource list -r "$SRC_RES" | $JQ -r '.[].resources[] | .vlms[0].allocated' | sort -n | tail -n1)
+DISK_SIZE=$($LINSTOR -m --output-version v1 resource list-volumes -r "$SRC_RES" | $JQ -r '.[].resources[] | .vlms[0].allocated_size' | sort -n | tail -n1)
 linstor_exec_and_log_no_error \
     "resource-definition set-property $SRC_RES Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE $DISK_SIZE"
 

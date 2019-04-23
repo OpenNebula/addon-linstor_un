@@ -15,26 +15,26 @@
 #------------------------------------------------------------------------------ #
 
 #--------------------------------------------------------------------------------
-# Parse the output of linstor -m storagepools list in json format and generates a
-# monitor string for linstor pool.
+# Parse the output of linstor -m --output-version v1 storagepools list in json
+# format and generates a monitor string for linstor pool.
 # You **MUST** define JQ util before using this function
 #   @param $1 the json output of the command
 #--------------------------------------------------------------------------------
 linstor_monitor_storpool() {
-    echo "$1" | $JQ -r '.[].stor_pools[].free_space | .free_capacity, .total_capacity' \
+    echo "$1" | $JQ -r '.[].stor_pools[]?.free_space | .free_capacity, .total_capacity' \
         | $AWK '{if (NR % 2) {free+=$1/1024} else {total+=$1/1024}};
         END{ printf "USED_MB=%0.f\nTOTAL_MB=%0.f\nFREE_MB=%0.f\n", total-free, total, free }'
 }
 
 #--------------------------------------------------------------------------------
-# Parse the output of linstor resource-definition list in json format and
-# generates a monitor strings for every VM.
+# Parse the output of linstor -m --output-version v1 resource-definition list in
+# json format and generates a monitor strings for every VM.
 # You **MUST** define JQ util before using this function
 #   @param $1 the json output of the command
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
-    local RES_SIZES_DATA=$($LINSTOR -m resource list | \
-        $JQ '.[].resources[] | {res: .name, size: .vlms[0].allocated}' )
+    local RES_SIZES_DATA=$($LINSTOR -m --output-version v1 resource list-volumes | \
+        $JQ '.[].resources[]? | {res: .name, size: .vlms[0].allocated_size}' )
     RES_SIZES_STATUS=$?
     if [ $RES_SIZES_STATUS -ne 0 ]; then
         echo "$RES_SIZES_DATA"
@@ -62,7 +62,7 @@ linstor_monitor_resources() {
                 # From last to first
                 for SNAP_ID in $SNAP_IDS; do
                     local SNAP_DISK_SIZE_K=$(echo "$DISK_JSON" | $JQ -r ".[].props | from_entries.\"Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE\"")
-                    local SNAP_DISK_SIZE=$((LINSTOR_SNAP_DISK_SIZE_K/1024))
+                    local SNAP_DISK_SIZE=$((SNAP_DISK_SIZE_K/1024))
                     local SNAP_SIZE=$((DISK_SIZE-SNAP_DISK_SIZE))
                     echo -n "SNAPSHOT_SIZE=[ID=${SNAP_ID},DISK_ID=${DISK_ID},SIZE=${SNAP_SIZE}] "
                     # Subtract next snapshot from current one
@@ -87,8 +87,9 @@ linstor_monitor_resources() {
 #   @return volume size in kilobytes
 #--------------------------------------------------------------------------------
 linstor_vd_size() {
-    $LINSTOR -m volume-definition list | $JQ -r ".[].rsc_dfns[] |
-	select(.rsc_name==\"${1}\").vlm_dfns[] | select(.vlm_nr==0).vlm_size"
+    $LINSTOR -m --output-version v1 volume-definition list | \
+        $JQ -r ".[].rsc_dfns[]? |
+        select(.rsc_name==\"${1}\").vlm_dfns[] | select(.vlm_nr==0).vlm_size"
 }
 
 #--------------------------------------------------------------------------------
@@ -145,8 +146,21 @@ linstor_load_keys() {
 #-------------------------------------------------------------------------------
 function linstor_get_hosts_for_res {
     local RES="$1"
-    $LINSTOR -m resource list -r $RES | \
-        $JQ -r '.[].resources[].node_name' | \
+    $LINSTOR -m --output-version v1 resource list -r $RES | \
+        $JQ -r '.[].resources[]?.node_name' | \
+        xargs
+}
+
+#-------------------------------------------------------------------------------
+# Gets the hosts list contains resource
+#   @param $1 - the resource name (to search)
+#   @return hosts list contains the resource
+#-------------------------------------------------------------------------------
+function linstor_get_diskless_hosts_for_res {
+    local RES="$1"
+    $LINSTOR -m --output-version v1 resource list -r $RES | \
+        $JQ -r '.[].resources[]? | select(.rsc_flags[]? |
+        contains("DISKLESS")) | .node_name' | \
         xargs
 }
 
@@ -163,23 +177,11 @@ function linstor_get_snaps_for_res {
         *) local SORT_FLAGS=n ;;
     esac
 
-    $LINSTOR -m snapshot list | \
+    $LINSTOR -m --output-version v1 snapshot list | \
         $JQ -r ".[].snapshot_dfns[] | \
         select(.rsc_name==\"${RES}\") | .snapshot_name" | \
         $AWK -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | \
         sort -${SORT_FLAGS} | \
-        xargs
-}
-
-#-------------------------------------------------------------------------------
-# Gets the hosts list contains resource
-#   @param $1 - the resource name (to search)
-#   @return hosts list contains the resource
-#-------------------------------------------------------------------------------
-function linstor_get_diskless_hosts_for_res {
-    local RES="$1"
-    $LINSTOR -m resource list -r $RES | \
-        $JQ -r '.[].resources[] | select(.rsc_flags[] | contains("DISKLESS")) | .node_name' | \
         xargs
 }
 
@@ -229,13 +231,13 @@ function linstor_get_bridge_host_for_res {
 
 
 #-------------------------------------------------------------------------------
-# Gets the resources list used for the virtual machine
+# Gets the non-persistent drive resources list used for the virtual machine
 #   @param $1 - the vmid (to search)
 #   @return list of resources belongs to the VM
 #-------------------------------------------------------------------------------
 function linstor_get_res_for_vmid {
     local VMID="$1"
-    local RD_DATA="$($LINSTOR -m resource-definition list)"
+    local RD_DATA="$($LINSTOR -m --output-version v1 resource-definition list)"
     if [ $? -ne 0 ]; then
         echo "Error getting resource-definition list"
         exit -1
@@ -247,25 +249,6 @@ function linstor_get_res_for_vmid {
 }
 
 
-
-function linstor_exec_and_log {
-    message=$2
-
-    EXEC_LOG_ERR=`$LINSTOR $@ 2>&1 1>/dev/null`
-    EXEC_LOG_RC=$?
-
-    if [ $EXEC_LOG_RC -ne 0 ]; then
-        log_error "Command \"$1\" failed: $EXEC_LOG_ERR"
-
-        if [ -n "$2" ]; then
-            error_message "$2"
-        else
-            error_message "Error executing $1: $EXEC_LOG_ERR"
-        fi
-        exit $EXEC_LOG_RC
-    fi
-}
-
 #-------------------------------------------------------------------------------
 # Executes a linstor command, if it fails returns error message but does not exit
 # If a second parameter is present it is used as the error message when
@@ -274,7 +257,7 @@ function linstor_exec_and_log {
 #   @param $2 - error message (optional)
 #-------------------------------------------------------------------------------
 function linstor_exec_and_log_no_error {
-    EXEC_LOG=`exec $LINSTOR -m $1 2>&1`
+    EXEC_LOG=`exec $LINSTOR -m --output-version v1 $1 2>&1`
     EXEC_LOG_RC=$?
 
     EXEC_LOG_ERR=$(echo "$EXEC_LOG" | \
