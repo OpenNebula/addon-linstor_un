@@ -1,18 +1,42 @@
-# Unofficial Linstor Storage Driver
+# Linstor Storage Driver (unofficial)
 
-## Requirements
+## Description
+
+Community driven full-feature Linstor storage driver implementation for OpenNebula
+
+### Comparsion to addon-linstor
+
+Why not simple use [official Linstor driver](https://github.com/OpenNebula/addon-linstor)? I was try official Linstor driver for OpenNebula before I made decidion to write my own implementation. And I didn't liked it because of the some reasons, most of them are listed here:
+
+* Bash-written
+  Unlike official Linstor driver which is written on python, this driver is written on bash. Any driver action is just a conventional bash script, which is calling standard shell-commands, these scripts can be easily updated or extended.
+* Uses OpenNebula native library
+  This driver uses standard OpenNebula library which is provides simplicity to developing and debugging driver scrubs, e.g. you will always see what exactly command was unsuccessful from the VM log, if something went wrong.
+* Does not requires external dependings.
+  Official driver requires configured linstor-client and extra python-bindings on every compute node. This driver have central managment model from the OpenNebula frontend node, so it requires only `jq` and `linstor-client` installed on the frontend node, and nothing external components installed on compute nodes. Worth noting you still need linstor-satellite and drbd9 module to build linstor-cluster.
+* Can work with newer versions of OpenNebula and supports modern features like **REPLICAS_ON_SAME**, **REPLICAS_ON_DIFFERENT** and etc.
+* Can work with any backend, even without snapshots support.
+
+## Compatibility
+
+This add-on is compatible with OpenNebula 5.6+
+
+## OpenNebula Installation
+
+### Requirements
 
 * Installed `jq` and `linstor` on the OpenNebula frontend.
 * Configured linstor cluster and access to it from OpenNebula frontend.
+* All OpenNebula hosts must be part of this cluster.
 
-## OpenNebula Installation
+### Installation steps
 
 * Copy [vmm overriders](vmm/kvm) to `/var/lib/one/remotes/vmm/kvm/`
 * Copy [datastore drivers](datastore/linstor_un) to `/var/lib/one/remotes/datastore/linstor_un`
 * Copy [transport drivers](tm/linstor_un) to `/var/lib/one/remotes/tm/linstor_un`
 * Move [datastore config](datastore/linstor_un/linstor_un.conf) to `/var/lib/one/remotes/etc/datastore/linstor_un/linstor_un.conf`
 
-### Update **oned.conf**:
+#### Update **oned.conf**:
 
 Modify **VM_MAD** section for the **kvm** driver:
 - add `save=save_linstor_un` and `restore=restore_linstor_un` overrides to local actions.
@@ -63,7 +87,7 @@ DS_MAD_CONF = [
 ]
 ```
 
-### Update **vmm_execrc**:
+#### Update **vmm_execrc**:
 
 - add `kvm-linstor_un` to the LIVE_DISK_SNAPSHOTS list
 
@@ -74,7 +98,7 @@ DS_MAD_CONF = [
 
 ## OpenNebula Configuration
 
-To use your Ceph cluster with the OpenNebula, you need to define a System and Image datastores. Each Image/System Datastore pair will share same following Ceph configuration attributes:
+To use your Linstor cluster with the OpenNebula, you need to define a System and Image datastores. Each Image/System Datastore pair will share same following Linstor configuration attributes:
 
 | Attribute                 | Description                                                                                                      | Mandatory |
 |---------------------------|------------------------------------------------------------------------------------------------------------------|-----------|
@@ -155,3 +179,19 @@ EOF
 
 onedatastore create -f system-ds.conf
 ```
+
+## Development
+
+To contribute bug patches or new features, you can use the github Pull Request model. It is assumed that code and documentation are contributed under the Apache License 2.0. 
+
+More info:
+* [How to Contribute](http://opennebula.org/addons/contribute/)
+* Support: [OpenNebula user forum](https://forum.opennebula.org/c/support)
+* Development: [OpenNebula developers forum](https://forum.opennebula.org/c/development)
+* Issues Tracking: Github issues (https://github.com/kvaps/opennebula-addon-linstor_un/issues)
+
+## Author
+
+* [kvaps](mailto:kvapss@gmail.com)
+
+
