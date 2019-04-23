@@ -184,7 +184,7 @@ fi
 
 # Add drive to monitoring
 linstor_exec_and_log \
-    "resource-definition set-property $DST_RES Aux/one/VMID $VM_ID"
+    "resource-definition set-property $DST_RES Aux/one/VM_ID $VM_ID"
 linstor_exec_and_log \
     "resource-definition set-property $DST_RES Aux/one/DISK_ID $DISK_ID"
 

@@ -86,7 +86,7 @@ ssh_exec_and_log "$SRC_HOST" \
 
 # Remove drive from monitoring
 linstor_exec_and_log \
-    "resource-definition set-property $DST_RES Aux/one/VMID"
+    "resource-definition set-property $DST_RES Aux/one/VM_ID"
 linstor_exec_and_log \
     "resource-definition set-property $DST_RES Aux/one/DISK_ID"
 

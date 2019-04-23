@@ -48,8 +48,8 @@ linstor_monitor_resources() {
         #     ...
         #   ]
         # }
-        local VMID=$(echo "$VM_JSON" | $JQ -r '. | keys[0]')
-        echo -n "VM=[ID=$VMID,POLL=\""
+        local VM_ID=$(echo "$VM_JSON" | $JQ -r '. | keys[0]')
+        echo -n "VM=[ID=$VM_ID,POLL=\""
             while read DISK_JSON; do
                 local DISK_ID=$(echo "$DISK_JSON" | $JQ -r '. | keys[]')
                 local RES=$(echo "$DISK_JSON" | $JQ -r '.[].res')
@@ -69,11 +69,11 @@ linstor_monitor_resources() {
                     local DISK_SIZE="$SNAP_DISK_SIZE"
                 done
 
-            done < <(echo "${VM_JSON}" | $JQ -c ".\"${VMID}\"[]")
+            done < <(echo "${VM_JSON}" | $JQ -c ".\"${VM_ID}\"[]")
         echo "\"]"
     done < <(echo "$1" | $JQ -c '[(
-        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props[].key=="Aux/one/VMID") |
-        {vmid: (.rsc_dfn_props | from_entries."Aux/one/VMID"),
+        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props[].key=="Aux/one/VM_ID") |
+        {vmid: (.rsc_dfn_props | from_entries."Aux/one/VM_ID"),
         disk_id: (.rsc_dfn_props | from_entries."Aux/one/DISK_ID"),
         res: .rsc_name,
         props: ([.rsc_dfn_props[]| select(.key | startswith("Aux/one"))])}
