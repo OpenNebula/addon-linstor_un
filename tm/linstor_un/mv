@@ -142,7 +142,7 @@ if [ `is_disk $SRC_PATH` -eq 1 ]; then
         SRC_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$SRC_RES")
         if [[ " $SRC_RES_DISKLESS_HOSTS " =~ " $SRC_HOST " ]]; then
             linstor_exec_and_log \
-                "--warn-as-error resource delete $SRC_HOST $SRC_RES --async"
+                "resource delete $SRC_HOST $SRC_RES --async"
         fi
 
         ssh_exec_and_log "$SRC_HOST" \

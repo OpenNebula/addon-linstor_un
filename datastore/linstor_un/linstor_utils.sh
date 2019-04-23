@@ -180,7 +180,7 @@ function linstor_get_snaps_for_res {
     esac
 
     $LINSTOR -m --output-version v1 snapshot list | \
-        $JQ -r ".[].snapshot_dfns[] | \
+        $JQ -r ".[].snapshot_dfns[]? | \
         select(.rsc_name==\"${RES}\") | .snapshot_name" | \
         $AWK -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | \
         sort -${SORT_FLAGS} | \

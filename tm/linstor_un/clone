@@ -16,11 +16,13 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-# clone fe:SOURCE host:remote_system_ds/disk.i size
+# clone fe:SOURCE host:remote_system_ds/disk.i vm_id ds_id
 #   - fe is the front-end hostname
 #   - SOURCE is the path of the disk image in the form DS_BASE_PATH/disk
 #   - host is the target host to deploy the VM
 #   - remote_system_ds is the path for the system datastore in the host
+#   - vm_id is the id of the VM
+#   - ds_id is the source datastore (the images datastore)
 
 SRC=$1
 DST=$2
@@ -52,6 +54,7 @@ SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
 DST_HOST=`arg_host $DST`
 DST_PATH=`arg_path $DST`
 DST_DIR=`dirname $DST_PATH`
+DS_ID=$(echo $DST_DIR | $AWK -F/ '{print $(NF-1)}')
 
 DISK_ID=$(echo $DST | awk -F. '{print $NF}')
 DST_RES="one-vm-${VM_ID}-disk-${DISK_ID}"

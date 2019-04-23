@@ -67,6 +67,6 @@ linstor_exec_and_log \
 
 # Remove snapshot
 linstor_exec_and_log \
-    "--warn-as-error snapshot delete $SRC_RES $SNAPSHOT"
+    "snapshot delete $SRC_RES $SNAPSHOT"
 
 exit 0
