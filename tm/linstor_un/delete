@@ -77,7 +77,7 @@ if [ `is_disk $DST_PATH` -eq 0 ]; then
 
     # Check if vm have checkpoint resource
     $LINSTOR -m --output-version v1 resource-definition list | \
-        $JQ -er ".[].rsc_dfns[]? | select(.rsc_name=="$CHECKPOINT_RES")" >/dev/null
+        $JQ -er ".[].rsc_dfns[]? | select(.rsc_name==\"$CHECKPOINT_RES\")" >/dev/null
 
     # Remove checkpoint resource
     if [ $? -eq 0 ]; then
