@@ -95,30 +95,25 @@ source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
 linstor_load_keys
 
 # Load cleanup trap
-trap linstor_cleanup_trap EXIT
+revert() {
+    $SSH $SRC_HOST virsh --connect $LIBVIRT_URI resume $DEPLOY_ID
+    linstor_cleanup_trap
+}
+trap revert EXIT
 
-# Saving VM state to checkpoint file
-SAVE_CMD=$(cat <<EOT
-if [ -f "$DST_PATH" ]; then
-    epoch=\$(date +%s)
-    mv $DST_PATH $DST_PATH.\$epoch
-fi
+# Suspend VM
+ssh_exec_and_log "$SRC_HOST" \
+    "virsh --connect $LIBVIRT_URI suspend $DEPLOY_ID" \
+    "Could not suspend $DEPLOY_ID on $SRC_HOST"
 
-touch "$DST_PATH"
-chmod 666 "$DST_PATH"
+ORIGINAL_SIZE_K="$($SSH $SRC_HOST virsh --connect $LIBVIRT_URI dommemstat $DEPLOY_ID | \
+    $AWK '$1 == "rss" {print $2}')"
 
-virsh --connect $LIBVIRT_URI save $DEPLOY_ID $DST_PATH
-EOT
-)
-
-ssh_exec_and_log "$SRC_HOST" "$SAVE_CMD" \
-    "Could not save $DEPLOY_ID to $DST_PATH on $SRC_HOST"
-
-ORIGINAL_SIZE_B="$($SSH $SRC_HOST $QEMU_IMG info $DST_PATH | \
-    $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
-
-if [ -z "$ORIGINAL_SIZE_B" ]; then
-    error_message "Error getting $DST_PATH checkpoint size"
+if [ -z "$ORIGINAL_SIZE_K" ]; then
+    error_message "Error getting checkpoint size"
+    ssh_exec_and_log_no_error "$SRC_HOST" \
+        "virsh --connect $LIBVIRT_URI resume $DEPLOY_ID" \
+        "Could not resume $DEPLOY_ID on $SRC_HOST"
     exit -1
 fi
 
@@ -127,7 +122,7 @@ linstor_exec_and_log \
     "resource-definition create $DST_RES" 
 LINSTOR_CLEANUP_RD+=" $DST_RES"
 linstor_exec_and_log \
-    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_B}B"
+    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_K}K"
 linstor_exec_and_log \
     "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
 
@@ -139,19 +134,11 @@ if ! [[ " $DST_RES_HOSTS " =~ " $SRC_HOST " ]]; then
     LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
 fi
 
-# Import checkpoint file
-IMPORT_CMD=$(cat <<EOF
-    set -e -o pipefail
+# saving vm state
+ssh_exec_and_log "$SRC_HOST" \
+    "virsh --connect $LIBVIRT_URI save $DEPLOY_ID $DST_DEV" \
+    "could not save $DEPLOY_ID to $DST_PATH on $SRC_HOST"
 
-    $QEMU_IMG convert -O raw $DST_PATH $DST_DEV
-
-    # remove original
-    $RM -f $DST_PATH
-EOF
-)
-
-ssh_exec_and_log "$SRC_HOST" "$IMPORT_CMD" \
-    "Error importing $DST_PATH to $DST_DEV on $SRC_HOST"
-
+trap linstor_cleanup_trap EXIT
 LINSTOR_CLEANUP_RD=
 exit 0
