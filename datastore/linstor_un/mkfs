@@ -106,7 +106,7 @@ linstor_load_keys
 
 set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 
-DST_RES="one-image-${ID}"
+DST_RES="one-${ID}"
 DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 DST="$DST_DEV"
 

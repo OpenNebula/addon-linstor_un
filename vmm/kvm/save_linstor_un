@@ -71,7 +71,7 @@ if [ -n "$CHECKPOINT_AUTO_PLACE" ]; then
     AUTO_PLACE="$CHECKPOINT_AUTO_PLACE"
 fi
 
-DST_RES="one-vm-${VM_ID}-checkpoint"
+DST_RES="one-sys-${VM_ID}-checkpoint"
 DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 
 #-------------------------------------------------------------------------------

@@ -75,10 +75,15 @@ done < <(onevm show -x $VM_ID| $XPATH \
 SRC_DEV="${XPATH_ELEMENTS[j++]}"
 CLONE="${XPATH_ELEMENTS[j++]}"
 
-if [ "$CLONE" = "NO" ]; then
-    SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
-else
-    SRC_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
+SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
+
+if [ "$CLONE" != "NO" ]; then
+    if [ -n "$SRC_DEV" ]; then
+        IMAGE_ID="$(echo "$SRC_RES" | $AWK -F- '{print $NF}')"
+    else
+        IMAGE_ID=sys
+    fi
+    SRC_RES="one-${IMAGE_ID}-${VM_ID}-${DISK_ID}"
     SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
 fi
 
@@ -86,7 +91,7 @@ fi
 # Delete snapshot
 #-------------------------------------------------------------------------------
 
-SNAPSHOT="snapshot-${SNAP_ID}"
+SNAPSHOT="snap-${SNAP_ID}"
 
 # Remove snapshot from monitoring
 linstor_exec_and_log \

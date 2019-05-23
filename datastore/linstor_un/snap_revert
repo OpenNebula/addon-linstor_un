@@ -73,7 +73,7 @@ linstor_load_keys
 # Revert to last snapshot
 #-------------------------------------------------------------------------------
 
-SNAPSHOT="snapshot-${SNAP_ID}"
+SNAPSHOT="snap-${SNAP_ID}"
 
 if [ "$SNAP_ID" = "$LAST_SNAP_ID" ]; then
 

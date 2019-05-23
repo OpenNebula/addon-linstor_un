@@ -68,7 +68,7 @@ fi
 
 for MRG_SNAP_ID in $ALL_SNAP_IDS; do
 
-    SNAPSHOT="snapshot-${MRG_SNAP_ID}"
+    SNAPSHOT="snap-${MRG_SNAP_ID}"
 
     if [ "$SNAP_ID" = "$MRG_SNAP_ID" ]; then
         # Rollback snapshot 

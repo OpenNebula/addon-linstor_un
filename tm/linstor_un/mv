@@ -113,11 +113,15 @@ if [ `is_disk $SRC_PATH` -eq 1 ]; then
 
     SRC_DEV="${XPATH_ELEMENTS[j++]}"
     CLONE="${XPATH_ELEMENTS[j++]}"
+    SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
 
-    if [ "$CLONE" = "NO" ]; then
-        SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
-    else
-        SRC_RES="one-vm-${VMID}-disk-${DISK_ID}"
+    if [ "$CLONE" != "NO" ]; then
+        if [ -n "$SRC_DEV" ]; then
+            IMAGE_ID="$(echo "$SRC_RES" | $AWK -F- '{print $NF}')"
+        else
+            IMAGE_ID=sys
+        fi
+        SRC_RES="one-${IMAGE_ID}-${VM_ID}-${DISK_ID}"
         SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
     fi
 
