@@ -307,15 +307,22 @@ function linstor_exec_and_log {
 function linstor_cleanup_trap {
     for RES in $LINSTOR_CLEANUP_RD; do
         linstor_exec_and_log_no_error \
-            "resource-definition delete $RES --async"
+            "resource-definition delete $RES"
+    done
+
+    for RES_SNAPSHOT in $LINSTOR_CLEANUP_SNAPSHOT; do
+        local RES=${RES_SNAPSHOT%%:*}
+        local SNAPSHOT=${RES_SNAPSHOT##*:}
+        linstor_exec_and_log_no_error \
+            "snapshot delete $RES $SNAPSHOT"
     done
 
     for NODE_RES in $LINSTOR_CLEANUP_RES; do
         if ! [[ " $LINSTOR_CLEANUP_RD " =~ " $RES " ]]; then
             break
         fi
-        NODE=${NODE_RES%%:*}
-        RES=${NODE_RES##*:}
+        local NODE=${NODE_RES%%:*}
+        local RES=${NODE_RES##*:}
         linstor_exec_and_log_no_error \
             "resource delete $NODE $RES --async"
     done
