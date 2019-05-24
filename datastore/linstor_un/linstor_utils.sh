@@ -15,7 +15,7 @@
 #------------------------------------------------------------------------------ #
 
 #--------------------------------------------------------------------------------
-# Parse the output of linstor -m --output-version v1 storagepools list in json
+# Parse the output of linstor -m --output-version v0 storagepools list in json
 # format and generates a monitor string for linstor pool.
 # You **MUST** define JQ util before using this function
 #   @param $1 the json output of the command
@@ -27,7 +27,7 @@ linstor_monitor_storpool() {
 }
 
 #--------------------------------------------------------------------------------
-# Parse the output of linstor -m --output-version v1 resource-definition list in
+# Parse the output of linstor -m --output-version v0 resource-definition list in
 # json format and generates a monitor strings for every VM.
 # You **MUST** define JQ util before using this function
 #   @param $1 the json output of the command
@@ -35,8 +35,8 @@ linstor_monitor_storpool() {
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
     local DS_ID=$2
-    local RES_SIZES_DATA=$($LINSTOR -m --output-version v1 resource list-volumes | \
-        $JQ '.[].resources[]? | {res: .name, size: .vlms[0].allocated_size}' )
+    local RES_SIZES_DATA=$($LINSTOR -m --output-version v0 resource list-volumes | \
+        $JQ '.[].resources[]? | {res: .name, size: .vlms[0].allocated}' )
     RES_SIZES_STATUS=$?
     if [ $RES_SIZES_STATUS -ne 0 ]; then
         echo "$RES_SIZES_DATA"
@@ -89,7 +89,7 @@ linstor_monitor_resources() {
 #   @return volume size in kilobytes
 #--------------------------------------------------------------------------------
 linstor_vd_size() {
-    $LINSTOR -m --output-version v1 volume-definition list | \
+    $LINSTOR -m --output-version v0 volume-definition list | \
         $JQ -r ".[].rsc_dfns[]? |
         select(.rsc_name==\"${1}\").vlm_dfns[] | select(.vlm_nr==0).vlm_size"
 }
@@ -148,7 +148,7 @@ linstor_load_keys() {
 #-------------------------------------------------------------------------------
 function linstor_get_hosts_for_res {
     local RES="$1"
-    $LINSTOR -m --output-version v1 resource list -r $RES | \
+    $LINSTOR -m --output-version v0 resource list -r $RES | \
         $JQ -r '.[].resources[]?.node_name' | \
         xargs
 }
@@ -160,7 +160,7 @@ function linstor_get_hosts_for_res {
 #-------------------------------------------------------------------------------
 function linstor_get_diskless_hosts_for_res {
     local RES="$1"
-    $LINSTOR -m --output-version v1 resource list -r $RES | \
+    $LINSTOR -m --output-version v0 resource list -r $RES | \
         $JQ -r '.[].resources[]? | select(.rsc_flags[]? |
         contains("DISKLESS")) | .node_name' | \
         xargs
@@ -179,7 +179,7 @@ function linstor_get_snaps_for_res {
         *) local SORT_FLAGS=n ;;
     esac
 
-    $LINSTOR -m --output-version v1 snapshot list | \
+    $LINSTOR -m --output-version v0 snapshot list | \
         $JQ -r ".[].snapshot_dfns[]? | \
         select(.rsc_name==\"${RES}\") | .snapshot_name" | \
         $AWK -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | \
@@ -242,7 +242,7 @@ function linstor_get_res_for_property {
     local PROPERTY="$1"
     local VALUE="$2"
 
-    local RD_DATA="$($LINSTOR -m --output-version v1 resource-definition list)"
+    local RD_DATA="$($LINSTOR -m --output-version v0 resource-definition list)"
     if [ $? -ne 0 ]; then
         echo "Error getting resource-definition list"
         exit -1
@@ -263,7 +263,7 @@ function linstor_get_res_for_property {
 #   @param $2 - error message (optional)
 #-------------------------------------------------------------------------------
 function linstor_exec_and_log_no_error {
-    EXEC_LOG=`exec $LINSTOR -m --output-version v1 $1 2>&1`
+    EXEC_LOG=`exec $LINSTOR -m --output-version v0 $1 2>&1`
     EXEC_LOG_RC=$?
 
     EXEC_LOG_ERR=$(echo "$EXEC_LOG" | \
