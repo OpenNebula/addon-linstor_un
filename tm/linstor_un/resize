@@ -16,11 +16,12 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-# resize image size vmid
+# resize image size vmid ds_id
 
 SRC=$1
 SIZE=$2
 VM_ID=$3
+DS_ID=$4
 
 #--------------------------------------------------------------------------------
 
@@ -49,8 +50,6 @@ SRC_PATH=`arg_path $SRC`
 #-------------------------------------------------------------------------------
 
 DISK_ID=$(echo "$SRC_PATH" | $AWK -F. '{print $NF}')
-DS_ID=$(echo $SRC_PATH | $AWK -F/ '{print $(NF-2)}')
-SRC_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
 
 XPATH="${DRIVER_PATH}/../../datastore/xpath.rb --stdin"
 
@@ -64,6 +63,24 @@ done < <(onedatastore show -x $DS_ID | $XPATH \
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
 
 linstor_load_keys
+
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <(onevm show -x $VM_ID| $XPATH \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/SOURCE \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/CLONE)
+
+SRC_DEV="${XPATH_ELEMENTS[j++]}"
+CLONE="${XPATH_ELEMENTS[j++]}"
+
+SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
+
+if [ "$CLONE" != "NO" ]; then
+    SRC_RES="one-vm-${VM_ID}-disk-${DISK_ID}"
+    SRC_DEV="/dev/drbd/by-res/${SRC_RES}/0"
+fi
 
 #-------------------------------------------------------------------------------
 # Resize disk
