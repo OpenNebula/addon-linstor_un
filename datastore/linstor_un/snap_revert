@@ -60,10 +60,9 @@ LAST_SNAP_ID="${XPATH_ELEMENTS[j++]}"
 
 SRC_DEV="$SRC"
 SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
-SRC_HOST=`linstor_get_bridge_host_for_res $SRC_RES 0 $ID`
+SRC_HOST=`linstor_get_bridge_host $SRC_RES 0 $ID`
 
 if [ -z "$SRC_HOST" ]; then
-    error_message "Datastore template missing 'BRIDGE_LIST' attribute."
     exit -1
 fi
 
