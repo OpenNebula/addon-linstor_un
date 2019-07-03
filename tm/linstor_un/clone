@@ -162,7 +162,7 @@ else
     linstor_exec_and_log \
         "snapshot resource restore --from-resource $SRC_RES --from-snapshot $DST_RES --to-resource $DST_RES"
     linstor_exec_and_log \
-        "volume-definition set-size $SRC_RES 0 ${SIZE}M"
+        "volume-definition set-size $DST_RES 0 ${SIZE}M"
 fi
 
 # Set properties
