@@ -92,10 +92,9 @@ DST_RES="one-image-${ID}"
 DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 DST="$DST_DEV"
 
-SRC_HOST=`linstor_get_bridge_host_for_res $SRC_RES 0 $ID`
+SRC_HOST=`linstor_get_bridge_host $SRC_RES 0 $ID`
 
 if [ -z "$SRC_HOST" ]; then
-    error_message "Datastore template missing 'BRIDGE_LIST' attribute."
     exit -1
 fi
 if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then

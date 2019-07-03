@@ -196,39 +196,60 @@ function linstor_get_snaps_for_res {
 #   not defined
 #   @return host to be used as bridge
 #-------------------------------------------------------------------------------
-function linstor_get_bridge_host_for_res {
+function linstor_get_bridge_host {
     local RES="$1"
     local MUST_CONTAIN="${2:-0}"
     local RR_ID="$3"
+    local HOSTS_ARRAY=()
 
-    local IMAGE_NODES="$(linstor_get_hosts_for_res $RES)"
-    unset REDUCED_LIST
-    for NODE in $BRIDGE_LIST; do
-        if [[ " $IMAGE_NODES " =~ " $NODE " ]] ; then
-            local REDUCED_LIST="$REDUCED_LIST $NODE"
+    if [ -z "$BRIDGE_LIST" ]; then
+        # Get online hosts
+        local REDUCED_LIST="$(onehost list --no-pager --csv \
+                --filter="STAT!=off,STAT!=err,STAT!=dsbl" --list=NAME,STAT | awk -F, 'NR>1{print $1}')"
+
+        if [ -z "$REDUCED_LIST" ]; then
+            error_message "'BRIDGE_LIST' is not specified, all other nodes are offline, error or disabled"
+            exit -1
         fi
-    done
-
-    local REDUCED_LIST=$(remove_off_hosts "$REDUCED_LIST")
-    if [ -n "$REDUCED_LIST" ]; then
-        local HOSTS_ARRAY=($REDUCED_LIST)
-        local N_HOSTS=${#HOSTS_ARRAY[@]}
-
-        if [ -n "$RR_ID" ]; then
-            local ARRAY_INDEX=$(($RR_ID % ${N_HOSTS}))
-        else
-            local ARRAY_INDEX=$((RANDOM % ${N_HOSTS}))
-        fi
-
-        echo ${HOSTS_ARRAY[$ARRAY_INDEX]}
     else
+        # Remove offline hosts
+        local REDUCED_LIST=$(remove_off_hosts "$BRIDGE_LIST")
+        if [ -z "$REDUCED_LIST" ]; then
+            error_message "All hosts from 'BRIDGE_LIST' are offline, error or disabled"
+            exit -1
+        fi
+    fi
+
+    # Remove hosts not containing resource
+    if [ -n "$RES" ]; then
+        local RES_HOSTS="$(linstor_get_hosts_for_res $RES)"
+        for HOST in $REDUCED_LIST; do
+            if [[ " $RES_HOSTS " =~ " $HOST " ]] ; then
+                local HOSTS_ARRAY+=($HOST)
+            fi
+        done
+    fi
+
+    # Fallback to hosts from BRIDGE_LIST
+    local N_HOSTS=${#HOSTS_ARRAY[@]}
+    if [ "$N_HOSTS" = 0 ]; then
         if [ "$MUST_CONTAIN" = "1" ]; then
             error_message "All hosts from 'BRIDGE_LIST' that contains $RES are offline, error or disabled"
             exit -1
         else
-	    get_destination_host $RR_ID
+            local HOSTS_ARRAY=($REDUCED_LIST)
+            local N_HOSTS=${#HOSTS_ARRAY[@]}
         fi
     fi
+
+    # Select random host
+    if [ -n "$RR_ID" ]; then
+        local ARRAY_INDEX=$(($RR_ID % ${N_HOSTS}))
+    else
+        local ARRAY_INDEX=$((RANDOM % ${N_HOSTS}))
+    fi
+
+    echo ${HOSTS_ARRAY[$ARRAY_INDEX]}
 }
 
 
@@ -303,6 +324,7 @@ function linstor_exec_and_log {
 #   Gets environment variables:
 #   - LINSTOR_CLEANUP_RD
 #   - LINSTOR_CLEANUP_R
+#   - LINSTOR_CLEANUP_SNAPSHOT
 #-------------------------------------------------------------------------------
 function linstor_cleanup_trap {
     for RES in $LINSTOR_CLEANUP_RD; do

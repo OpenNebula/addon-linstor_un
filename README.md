@@ -83,7 +83,7 @@ TM_MAD_CONF = [
 Add new **DS_MAD_CONF** section:
 ```
 DS_MAD_CONF = [
-    NAME = "linstor_un", REQUIRED_ATTRS = "BRIDGE_LIST", PERSISTENT_ONLY = "NO",
+    NAME = "linstor_un", PERSISTENT_ONLY = "NO",
     MARKETPLACE_ACTIONS = "export"
 ]
 ```
@@ -105,7 +105,7 @@ To use your Linstor cluster with the OpenNebula, you need to define a System and
 |---------------------------|------------------------------------------------------------------------------------------------------------------|-----------|
 | `NAME`                    | The name of the datastore                                                                                        | **YES**   |
 | `CLONE_MODE`              | `snapshot` - will create snapshot for instantiate VMs. `copy` - create full copy of image, this is default mode. | NO        |
-| `BRIDGE_LIST`             | Space separated hosts list used for transfer operations. Copy data between images and etc.                       | **YES**   |
+| `BRIDGE_LIST`             | Space separated hosts list used for transfer operations. Copy data between images and etc. Default: all hosts.   | NO        |
 | `LS_CONTROLLERS`          | Comma separated linstor controllers list for establish connection.                                               | NO        |
 | `NODE_LIST`               | Space separated hosts list to place replicas. Replicas will always be created on all these hosts.                | **YES** * |
 | `LAYER_LIST`              | Comma separated layer list to place replicas.                                                                    | NO        |
@@ -118,7 +118,7 @@ To use your Linstor cluster with the OpenNebula, you need to define a System and
 | `DO_NOT_PLACE_WITH_REGEX` | Regular expression to avoid placing replicas on same place with targeted resources.                              | NO        |
 | `STORAGE_POOL`            | Storage pool name to place replicas.                                                                             | **YES**   |
 | `DISKLESS_POOL`           | Diskless pool to place diskless replicas. Default: `DfltDisklessStorPool`.                                       | NO        |
-| `ENCRYPTION`              | `yes` - will enable encryption during volume creation. | NO                                                      |           |
+| `ENCRYPTION`              | `yes` - will enable encryption during volume creation.                                                           | NO        |
 
 *\* - only one attribute required*
 
@@ -143,7 +143,6 @@ TYPE="SYSTEM_DS"
 STORAGE_POOL="data"
 AUTO_PLACE="2"
 CHECKPOINT_AUTO_PLACE="1"
-BRIDGE_LIST="node1 node2 node3"
 TM_MAD="linstor_un"
 EOT
 
@@ -171,7 +170,6 @@ NAME="linstor-images"
 TYPE="IMAGE_DS"
 STORAGE_POOL="data"
 AUTO_PLACE="2"
-BRIDGE_LIST="node1 node2 node3"
 DISK_TYPE="BLOCK"
 DS_MAD="linstor_un"
 TM_MAD="linstor_un"
