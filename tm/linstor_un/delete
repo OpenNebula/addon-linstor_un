@@ -59,12 +59,27 @@ unset i j XPATH_ELEMENTS
 while IFS= read -r -d '' element; do
     XPATH_ELEMENTS[i++]="$element"
 done < <(onedatastore show -x $DS_ID | $XPATH \
-                    /DATASTORE/TEMPLATE/LS_CONTROLLERS)
+                    /DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /DATASTORE/TEMPLATE/BRIDGE_LIST)
 
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 
 linstor_load_keys
 
+unset i j XPATH_ELEMENTS
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <(onevm show -x $VM_ID | $XPATH \
+    '/VM/HISTORY_RECORDS/HISTORY[last()]/HOSTNAME')
+
+LAST_HOST="${XPATH_ELEMENTS[j++]}"
+
+# Change DST_HOST to one of the BRIDGE_LIST to prevent
+# running on frontend for undeployed VMs
+if [ "$LAST_HOST" != "$DST_HOST" ]; then
+    DST_HOST=$(linstor_get_bridge_host)
+fi
 
 #-------------------------------------------------------------------------------
 # Delete and exit if directory
