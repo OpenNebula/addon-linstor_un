@@ -119,14 +119,26 @@ unset i j XPATH_ELEMENTS
 while IFS= read -r -d '' element; do
     XPATH_ELEMENTS[i++]="$element"
 done < <(onevm show -x $VM_ID| $XPATH \
-                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/SOURCE)
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/SOURCE \
+                    /VM/TEMPLATE/DISK[DISK_ID=$DISK_ID]/CLONE)
 
 SRC_DEV="${XPATH_ELEMENTS[j++]}"
+CLONE="${XPATH_ELEMENTS[j++]}"
+
 SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
 
 #-------------------------------------------------------------------------------
 # Delete the device
 #-------------------------------------------------------------------------------
+
+# Unlink resource
+ssh_exec_and_log "$DST_HOST" "rm -f $DST_PATH" \
+    "Error unlinking $DST_PATH"
+
+# No need to delete no cloned images
+if [ "$CLONE" = "NO" ]; then
+    exit 0
+fi
 
 log "Deleting $DST_RES"
 
@@ -149,10 +161,6 @@ done
 # Remove resource
 linstor_exec_and_log \
     "resource-definition delete $DST_RES"
-
-# Unlink resource
-ssh_exec_and_log "$DST_HOST" "rm -f $DST_PATH" \
-    "Error unlinking $DST_PATH"
 
 # Check if source image have snapshot (CLONE_MODE=snapshot)
 $LINSTOR -m --output-version v0 snapshot list | \
