@@ -80,21 +80,17 @@ LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
 linstor_load_keys
 
 VM_RESOURCES=$(linstor_get_res_for_property Aux/one/VM_ID $VMID)
-for SRC_RES in $VM_RESOURCES; do
+for DST_RES in $VM_RESOURCES; do
 
     # Unset allow-two-primaries
     linstor_exec_and_log \
-        "resource-definition set-property $SRC_RES DrbdOptions/Net/allow-two-primaries"
+        "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries"
 
     # Detach diskless resources
-    SRC_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$SRC_RES")
-    if [[ " $SRC_RES_DISKLESS_HOSTS " =~ " $SRC_HOST " ]]; then
+    DST_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$DST_RES")
+    if [[ " $DST_RES_DISKLESS_HOSTS " =~ " $DST_HOST " ]]; then
         linstor_exec_and_log \
-            "resource delete $SRC_HOST $SRC_RES --async"
-    fi
-    if [[ " $SRC_RES_DISKLESS_HOSTS " =~ " $DST_HOST " ]]; then
-        linstor_exec_and_log \
-            "resource delete $DST_HOST $SRC_RES --async"
+            "resource delete $DST_HOST $DST_RES --async"
     fi
 
 done
