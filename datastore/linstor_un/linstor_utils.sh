@@ -277,6 +277,18 @@ function linstor_get_res_for_property {
 }
 
 #-------------------------------------------------------------------------------
+# Checking return code for linstor command
+#   @param $1 - ret_code
+#-------------------------------------------------------------------------------
+linstor_error() {
+  local RET_CODE="$(printf '0x%X\n' $1)"
+  local MASK_ERROR="0xC000000000000000"
+
+  # Bitwise AND
+  [ $(printf '0x%X\n' "$(( "$RET_CODE" & "$MASK_ERROR" ))") == "$MASK_ERROR" ]
+}
+
+#-------------------------------------------------------------------------------
 # Executes a linstor command, if it fails returns error message but does not exit
 # If a second parameter is present it is used as the error message when
 # the command fails
@@ -286,15 +298,25 @@ function linstor_get_res_for_property {
 function linstor_exec_and_log_no_error {
     EXEC_LOG=`exec $LINSTOR -m --output-version v0 $1 2>&1`
     EXEC_LOG_RC=$?
+    EXEC_LOG_ERR=
 
-    EXEC_LOG_ERR=$(echo "$EXEC_LOG" | \
-        $JQ -r '.[] | select(.error_report_ids) |
-        .message + " Error reports: [ " + (.error_report_ids | join(", ")) + " ]"')
-
-    if [ -z "$EXEC_LOG_ERR" ]; then
+    if [ "$EXEC_LOG_RC" != 0 ]; then
         EXEC_LOG_ERR="$EXEC_LOG"
     else
-        EXEC_LOG_RC=1
+        local i=0
+        while read RET_CODE; do
+
+            if linstor_error "$RET_CODE"; then
+              EXEC_LOG_RC=1
+              EXEC_LOG_ERR+="$(echo "$EXEC_LOG" | $JQ -r '.['$i'] |
+                [ (.message), (select(.error_report_ids) |
+                " Error reports: [ " + (.error_report_ids | join(", ")) + " ] " )
+                ] | join(" ")')"
+            fi
+            i="$((i+1))"
+
+        done < <(echo "$EXEC_LOG" | \
+          jq -r 'select(.|type == "array")[] | select(.ret_code) | .ret_code')
     fi
 
     if [ $EXEC_LOG_RC -ne 0 ]; then
