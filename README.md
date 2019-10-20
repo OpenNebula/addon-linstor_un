@@ -4,6 +4,8 @@
 
 Community driven full-feature Linstor storage driver for OpenNebula
 
+Read the [**blog article**](https://opennebula.org/linstor_un-new-storage-driver-for-opennebula-2/) for more details...
+
 ### Comparsion to addon-linstor
 
 Why not simple use [official Linstor driver](https://github.com/OpenNebula/addon-linstor)? I was try official Linstor driver for OpenNebula before I made decidion to write my own implementation. And I didn't liked it because of the some reasons, most of them are listed here:
