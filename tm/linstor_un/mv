@@ -84,6 +84,15 @@ STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 
+unset i j XPATH_ELEMENTS
+
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <(onevm show -x $VMID | $XPATH \
+                    /VM/LCM_STATE)
+
+LCM_STATE="${XPATH_ELEMENTS[j++]}"
+
 linstor_load_keys
 
 SRC_PATH=`arg_path $SRC`
@@ -125,15 +134,6 @@ if [ `is_disk $SRC_PATH` -eq 1 ]; then
     DST_DEV="$SRC_DEV"
     SRC_DS_SYS_ID=$(echo $SRC_DIR | $AWK -F '/' '{print $(NF-1)}')
     DST_DS_SYS_ID=$(echo $DST_DIR | $AWK -F '/' '{print $(NF-1)}')
-
-    unset i j XPATH_ELEMENTS
-
-    while IFS= read -r -d '' element; do
-        XPATH_ELEMENTS[i++]="$element"
-    done < <(onevm show -x $VMID | $XPATH  \
-                        /VM/LCM_STATE )
-
-    LCM_STATE="${XPATH_ELEMENTS[j++]}"
 
     # for PROLOG_RESUME + PROLOG_UNDEPLOY skip deactivate
     if ! [[ "$LCM_STATE" =~ ^(9|31|49|50)$ ]]; then
