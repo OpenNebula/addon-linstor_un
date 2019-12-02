@@ -89,9 +89,8 @@ linstor_monitor_resources() {
 #   @return volume size in kilobytes
 #--------------------------------------------------------------------------------
 linstor_vd_size() {
-    $LINSTOR -m --output-version v0 volume-definition list | \
-        $JQ -r ".[].rsc_dfns[]? |
-        select(.rsc_name==\"${1}\").vlm_dfns[] | select(.vlm_nr==0).vlm_size"
+    $LINSTOR -m --output-version v0 volume-definition list -r "${1}" | \
+        $JQ -r '.[].rsc_dfns[]?.vlm_dfns[] | select(.vlm_nr==0).vlm_size'
 }
 
 #--------------------------------------------------------------------------------

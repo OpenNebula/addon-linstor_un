@@ -21,7 +21,11 @@ Why not simple use [official Linstor driver](https://github.com/OpenNebula/addon
 
 ## Compatibility
 
-This add-on is compatible with OpenNebula 5.6+
+This add-on is compatible with:
+
+* OpenNebula 5.6+
+* Linstor server 1.2.0+
+* Linstor client 1.0.4+
 
 ## OpenNebula Installation
 
