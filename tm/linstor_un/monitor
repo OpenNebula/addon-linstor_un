@@ -64,7 +64,7 @@ linstor_load_keys
 # ------------ Compute datastore usage -------------
 
 MONITOR_SCRIPT=$(cat <<EOF
-    $LINSTOR -m --output-version v0 storage-pool list --storpools "$STORAGE_POOL"
+    $LINSTOR -m --output-version v0 storage-pool list -s "$STORAGE_POOL"
 EOF
 )
 
