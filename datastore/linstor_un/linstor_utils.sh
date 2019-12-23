@@ -224,7 +224,7 @@ function linstor_get_bridge_host {
         local RES_HOSTS="$(linstor_get_hosts_for_res $RES)"
         for HOST in $REDUCED_LIST; do
             if [[ " $RES_HOSTS " =~ " $HOST " ]] ; then
-                local HOSTS_ARRAY+=($HOST)
+                HOSTS_ARRAY+=($HOST)
             fi
         done
     fi
@@ -284,7 +284,7 @@ linstor_error() {
   local MASK_ERROR="0xC000000000000000"
 
   # Bitwise AND
-  [ $(printf '0x%X\n' "$(( "$RET_CODE" & "$MASK_ERROR" ))") == "$MASK_ERROR" ]
+  [ $(printf '0x%X\n' "$(( $RET_CODE & $MASK_ERROR ))") = "$MASK_ERROR" ]
 }
 
 #-------------------------------------------------------------------------------
