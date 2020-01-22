@@ -79,8 +79,8 @@ if [[ " $DST_RES_DISKLESS_HOSTS " =~ " $SRC_HOST " ]]; then
         "resource delete $SRC_HOST $DST_RES --async"
 fi
 
-# Unlink device on destination host
-ssh_exec_and_log "$SRC_HOST" \
+# Unlink device on source host
+ssh_exec_and_log_no_error "$SRC_HOST" \
     "rm -f $SRC_PATH" \
     "Error unlinking $SRC_PATH on $SRC_HOST"
 
