@@ -315,7 +315,7 @@ function linstor_exec_and_log_no_error {
             i="$((i+1))"
 
         done < <(echo "$EXEC_LOG" | \
-          jq -r 'select(.|type == "array")[] | select(.ret_code) | .ret_code')
+          $JQ -r 'select(.|type == "array")[] | select(.ret_code) | .ret_code')
     fi
 
     if [ $EXEC_LOG_RC -ne 0 ]; then
