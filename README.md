@@ -179,6 +179,8 @@ AUTO_PLACE="2"
 DISK_TYPE="BLOCK"
 DS_MAD="linstor_un"
 TM_MAD="linstor_un"
+RESTRICTED_DIRS=/
+SAFE_DIRS=/var/tmp
 EOT
 
 onedatastore create images-ds.conf
