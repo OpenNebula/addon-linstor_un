@@ -159,6 +159,9 @@ if [ -z "$ORIGINAL_SIZE_B" ]; then
     error_message "Error getting $TMP_DST size on $DST_HOST"
     exit -1
 fi
+if [ "$ORIGINAL_SIZE_B" -lt 4096 ]; then
+  ORIGINAL_SIZE_B="4096"
+fi
 
 # Deploy new volume
 linstor_exec_and_log \

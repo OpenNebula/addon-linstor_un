@@ -116,6 +116,9 @@ if [ -z "$ORIGINAL_SIZE_K" ]; then
         "Could not resume $DEPLOY_ID on $SRC_HOST"
     exit -1
 fi
+if [ "$ORIGINAL_SIZE_K" -lt 4 ]; then
+  ORIGINAL_SIZE_B="4"
+fi
 
 # Deploy new volume
 linstor_exec_and_log \
