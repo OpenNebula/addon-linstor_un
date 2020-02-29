@@ -8,14 +8,14 @@ Read the [**blog article**](https://opennebula.org/linstor_un-new-storage-driver
 
 ### Comparsion to addon-linstor
 
-Why not simple use [official Linstor driver](https://github.com/OpenNebula/addon-linstor)? I was try official Linstor driver for OpenNebula before I made decidion to write my own implementation. And I didn't liked it because of the some reasons, most of them are listed here:
+Why not simply use the [official Linstor driver](https://github.com/OpenNebula/addon-linstor)? I was trying an official Linstor driver for OpenNebula, before I made a decidion to write my own implementation. And I didn't like it because of reasons, that are mostly described below
 
 * Bash-written.
-  Unlike official Linstor driver which is written on python, this driver is written on bash. Any driver action is just a conventional bash script, which is calling standard shell-commands, these scripts can be easily updated or extended.
+  Unlike official Linstor driver which is written in python, this driver is written in bash. Any driver action is just a conventional bash script, which is calling standard shell-commands, meaning these scripts can be easily updated or extended.
 * Uses OpenNebula native library
-  This driver uses standard OpenNebula library which is provides simplicity to developing and debugging driver actions, e.g. you will always see what exactly command was unsuccessful from the VM log, if something went wrong.
+  This driver uses standard OpenNebula library which provides simplicity developing and debugging driver actions, e.g. you will always see what exact command was unsuccessful from the VM log, if something went wrong.
 * Does not requires external dependings.
-  Official driver requires configured linstor-client and extra python-bindings on every compute node. This driver have central managment model from the OpenNebula frontend node, so it requires only `jq` and `linstor-client` installed on the frontend node, and nothing external components installed on compute nodes. Worth noting you still need linstor-satellite and drbd9 module to build linstor-cluster.
+  Official driver needs configured linstor-client and extra python-bindings on every compute node. This driver has a central managment model from the OpenNebula frontend node, so it requires only `jq` and `linstor-client` installed on the frontend node, and no external components on compute nodes. It's also worth noting, that you still need linstor-satellite and drbd9 module to build linstor-cluster.
 * Can work with newer versions of OpenNebula and supports modern linstor features like **REPLICAS_ON_SAME**, **REPLICAS_ON_DIFFERENT** and others.
 * Can work with any backend, even without snapshots support.
 
