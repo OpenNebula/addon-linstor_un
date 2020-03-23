@@ -131,32 +131,6 @@ To use your Linstor cluster with the OpenNebula, you need to define a System and
 
 > **Note**: You may add another Image and System Datastores pointing to other pools with different allocation/replication policies in Linstor.
 
-
-### Create a System Datastore
-
-System Datastore also requires these attributes:
-
-| Attribute | Description  | Mandatory |
-|-----------|--------------|-----------|
-| `TYPE`    | `SYSTEM_DS`  | **YES**   |
-| `TM_MAD`  | `linstor_un` | **YES**   |
-
-Create a System Datastore in Sunstone or through the CLI, for example:
-
-```bash
-cat > system-ds.conf <<EOT
-NAME="linstor-system"
-TYPE="SYSTEM_DS"
-STORAGE_POOL="data"
-AUTO_PLACE="2"
-PREFER_NODE="yes"
-CHECKPOINT_AUTO_PLACE="1"
-TM_MAD="linstor_un"
-EOT
-
-onedatastore create system-ds.conf
-```
-
 ### Create an Image Datastore
 
 Apart from the previous attributes, that need to be the same as the associated System Datastore, the following can be set for an Image Datastore:
@@ -186,6 +160,31 @@ SAFE_DIRS=/var/tmp
 EOT
 
 onedatastore create images-ds.conf
+```
+
+### Create a System Datastore
+
+System Datastore also requires these attributes:
+
+| Attribute | Description  | Mandatory |
+|-----------|--------------|-----------|
+| `TYPE`    | `SYSTEM_DS`  | **YES**   |
+| `TM_MAD`  | `linstor_un` | **YES**   |
+
+Create a System Datastore in Sunstone or through the CLI, for example:
+
+```bash
+cat > system-ds.conf <<EOT
+NAME="linstor-system"
+TYPE="SYSTEM_DS"
+STORAGE_POOL="data"
+AUTO_PLACE="2"
+PREFER_NODE="yes"
+CHECKPOINT_AUTO_PLACE="1"
+TM_MAD="linstor_un"
+EOT
+
+onedatastore create system-ds.conf
 ```
 
 ## Development
