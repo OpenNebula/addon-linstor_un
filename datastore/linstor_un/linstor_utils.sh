@@ -131,9 +131,11 @@ linstor_load_keys() {
     fi
     if [ -n "$LAYER_LIST" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --layer-list $LAYER_LIST"
+        RES_CREATE_SHORT_ARGS="$RES_CREATE_ARGS --layer-list $LAYER_LIST"
     fi
     if [ -n "$PROVIDERS" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --providers $PROVIDERS"
+        RES_CREATE_SHORT_ARGS="$RES_CREATE_ARGS --providers $PROVIDERS"
     fi
     if [ "$ENCRYPTION" = "yes" ]; then
         VOL_CREATE_ARGS="$VOL_CREATE_ARGS --encrypt"

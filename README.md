@@ -124,6 +124,7 @@ To use your Linstor cluster with the OpenNebula, you need to define a System and
 | `DO_NOT_PLACE_WITH_REGEX` | Regular expression to avoid placing replicas on same place with targeted resources.                              | NO        |
 | `STORAGE_POOL`            | Storage pool name to place replicas.                                                                             | **YES**   |
 | `DISKLESS_POOL`           | Diskless pool to place diskless replicas. Default: `DfltDisklessStorPool`.                                       | NO        |
+| `PREFER_NODE`             | `yes` - try to place and copy the data on the node that will afterwards be used by the VM                        | NO        |
 | `ENCRYPTION`              | `yes` - will enable encryption during volume creation.                                                           | NO        |
 
 *\* - only one attribute required*
@@ -148,6 +149,7 @@ NAME="linstor-system"
 TYPE="SYSTEM_DS"
 STORAGE_POOL="data"
 AUTO_PLACE="2"
+PREFER_NODE="yes"
 CHECKPOINT_AUTO_PLACE="1"
 TM_MAD="linstor_un"
 EOT
