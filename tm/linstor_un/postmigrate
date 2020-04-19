@@ -32,6 +32,12 @@ SRC_PATH=$3
 VMID=$4
 DSID=$5
 
+if [ ! -t 0 ]; then
+  TEMPLATE_64=$(cat)
+else
+  TEMPLATE_64=$(onevm show -x "$VMID" | base64 | tr -d '\n')
+fi
+
 #--------------------------------------------------------------------------------
 
 if [ -z "${ONE_LOCATION}" ]; then
