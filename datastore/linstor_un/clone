@@ -148,9 +148,11 @@ if ! [[ " $DST_RES_HOSTS " =~ " $SRC_HOST " ]]; then
 fi
 
 # Clone image from SRC_RES to DST_RES
-ssh_exec_and_log "$SRC_HOST" \
-    "cat $SRC_DEV > $DST_DEV" \
-    "Error cloning $SRC_DEV to $DST_DEV on $SRC_HOST"
+flock -s "/var/lock/one/linstor_un-${SRC_HOST}-${SRC_RES}.lock" \
+flock -s "/var/lock/one/linstor_un-${SRC_HOST}-${DST_RES}.lock" \
+    ssh_exec_and_log "$SRC_HOST" \
+        "cat $SRC_DEV > $DST_DEV" \
+        "Error cloning $SRC_DEV to $DST_DEV on $SRC_HOST"
 
 LINSTOR_CLEANUP_RD=
 echo "$DST"

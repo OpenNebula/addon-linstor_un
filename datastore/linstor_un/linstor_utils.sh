@@ -368,7 +368,11 @@ function linstor_cleanup_trap {
         fi
         local NODE=${NODE_RES%%:*}
         local RES=${NODE_RES##*:}
-        linstor_exec_and_log_no_error \
-            "resource delete $NODE $RES --async"
+        local LOCK="/var/lock/one/linstor_un-${NODE}-${RES}.lock"
+
+        if flock -n "$LOCK" rm -f "$LOCK"; then
+            linstor_exec_and_log_no_error \
+                "resource delete $NODE $RES --async"
+        fi
     done
 }
