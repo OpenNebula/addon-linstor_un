@@ -114,6 +114,18 @@ linstor_load_keys() {
     if [ -n "$LS_CONTROLLERS" ]; then
         LINSTOR="$LINSTOR --controllers $LS_CONTROLLERS"
     fi
+    if [ -n "$LS_CERTFILE" ]; then
+        LINSTOR="$LINSTOR --certfile $LS_CERTFILE"
+    fi
+    if [ -n "$LS_KEYFILE" ]; then
+        LINSTOR="$LINSTOR --keyfile $LS_KEYFILE"
+    fi
+    if [ -n "$LS_CAFILE" ]; then
+        LINSTOR="$LINSTOR --certfile $LS_CAFILE"
+    fi
+    if [ -n "$RESOURCE_GROUP" ]; then
+        RD_CREATE_ARGS="$RD_CREATE_ARGS --resource-group $RESOURCE_GROUP"
+    fi
     if [ -n "$REPLICAS_ON_SAME" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --replicas-on-same $REPLICAS_ON_SAME"
     fi
@@ -130,6 +142,7 @@ linstor_load_keys() {
         RES_CREATE_ARGS="$RES_CREATE_ARGS --do-not-place-with-regex $DO_NOT_PLACE_WITH_REGEX"
     fi
     if [ -n "$LAYER_LIST" ]; then
+        RD_CREATE_ARGS="$RD_CREATE_ARGS --layer-list $LAYER_LIST"
         RES_CREATE_ARGS="$RES_CREATE_ARGS --layer-list $LAYER_LIST"
         RES_CREATE_SHORT_ARGS="$RES_CREATE_ARGS --layer-list $LAYER_LIST"
     fi
