@@ -91,11 +91,7 @@ linstor_exec_and_log \
     "resource-definition set-property $SRC_RES Aux/one/DISK_ID $DISK_ID"
 
 # Attach diskless resource on destination host
-SRC_RES_HOSTS=$(linstor_get_hosts_for_res "$SRC_RES")
-if ! [[ " $SRC_RES_HOSTS " =~ " $DST_HOST " ]]; then
-    linstor_exec_and_log \
-        "resource create -s $DISKLESS_POOL $DST_HOST $SRC_RES"
-fi
+linstor_attach_diskless "$DST_HOST" "$SRC_RES" "$DISKLESS_POOL"
 
 LINK_CMD=$(cat <<EOF
     set -e -o pipefail

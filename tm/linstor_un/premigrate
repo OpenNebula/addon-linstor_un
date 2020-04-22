@@ -101,11 +101,7 @@ VM_RESOURCES=$(linstor_get_res_for_property Aux/one/VM_ID $VMID)
 for DST_RES in $VM_RESOURCES; do
 
     # Attach diskless resource on destination host
-    DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
-    if ! [[ " $DST_RES_HOSTS " =~ " $DST_HOST " ]]; then
-        linstor_exec_and_log \
-            "resource create -s $DISKLESS_POOL $DST_HOST $DST_RES"
-    fi
+    linstor_attach_diskless "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
 
     # Set allow-two-primaries=yes
     linstor_exec_and_log \

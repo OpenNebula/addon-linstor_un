@@ -368,11 +368,57 @@ function linstor_cleanup_trap {
         fi
         local NODE=${NODE_RES%%:*}
         local RES=${NODE_RES##*:}
-        local LOCK="/var/lock/one/linstor_un-${NODE}-${RES}.lock"
+        local LOCK_FILE="/var/lock/one/linstor_un-detach-${NODE}-${RES}.lock"
 
-        if flock -n "$LOCK" rm -f "$LOCK"; then
+        if flock -n "$LOCK_FILE" rm -f "$LOCK_FILE"; then
             linstor_exec_and_log_no_error \
                 "resource delete $NODE $RES --async"
         fi
     done
+}
+
+#-------------------------------------------------------------------------------
+# Creates diskless resource on specific host if no other resources found.
+# This command executes exclusively for specified host and resource pair.
+#   @param $1 - host to attach
+#   @param $2 - resource name
+#   @param $3 - the diskless pool (optional)
+#   @return code 0 - attached, 1 - not attached
+#-------------------------------------------------------------------------------
+function linstor_attach_diskless {
+    local HOST="$1"
+    local RES="$2"
+    local DISKLESS_POOL="${3:-DfltDisklessStorPool}"
+    local LOCK_FILE="/var/lock/one/linstor_un-attach-${HOST}-${RES}.lock"
+    local TIMEOUT=60
+    local EXEC_RC=1
+
+    ( umask 0027; touch "${LOCK_FILE}" 2>/dev/null )
+
+    # open lockfile
+    { exec {FD}>"${LOCK_FILE}"; } 2>/dev/null
+    if [ $? -ne 0 ]; then
+        log_error "Could not create or open lock ${LOCK_FILE}"
+        exit -2
+    fi
+
+    # acquire lock
+    flock -w "${TIMEOUT}" "${FD}" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        log_error "Could not acquire exclusive lock on ${LOCK_FILE}"
+        exit -2
+    fi
+
+    # attach resource
+    local RES_HOSTS="$(linstor_get_hosts_for_res $RES)"
+    if ! [[ " $RES_HOSTS " =~ " $HOST " ]]; then
+        linstor_exec_and_log \
+            "resource create -s $DISKLESS_POOL $HOST $RES"
+        EXEC_RC=0
+    fi
+
+    # release lock
+    eval "exec ${FD}>&-"
+    flock -n "$LOCK_FILE" rm -f "$LOCK_FILE"
+    return $EXEC_RC
 }

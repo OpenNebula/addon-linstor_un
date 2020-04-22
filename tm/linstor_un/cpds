@@ -181,10 +181,7 @@ linstor_exec_and_log \
     "resource-definition set-property $DST_RES Aux/one/DS_ID"
 
 # Attach diskless resource for DST_RES on SRC_HOST
-DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
-if ! [[ " $DST_RES_HOSTS " =~ " $SRC_HOST " ]]; then
-    linstor_exec_and_log \
-        "resource create -s $DISKLESS_POOL $SRC_HOST $DST_RES"
+if linstor_attach_diskless "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"; then
     LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
 fi
 
@@ -212,11 +209,8 @@ else
         "snapshot resource restore --from-resource $SRC_RES --from-snapshot $SNAPSHOT --to-resource $TMP_RES"
     
     # Attach diskless resources for TMP_RES on SRC_HOST
-    TMP_RES_HOSTS=$(linstor_get_hosts_for_res "$TMP_RES")
-    if ! [[ " $TMP_RES_HOSTS " =~ " $SRC_HOST " ]]; then
-        linstor_exec_and_log \
-            "resource create -s $DISKLESS_POOL $SRC_HOST $TMP_RES"
-        LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
+    if linstor_attach_diskless "$SRC_HOST" "$TMP_RES" "$DISKLESS_POOL"; then
+        LINSTOR_CLEANUP_RES+=" $SRC_HOST:$TMP_RES"
     fi
     
     # Clone image from TMP_RES to DST_RES

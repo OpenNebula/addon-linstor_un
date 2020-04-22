@@ -186,35 +186,25 @@ linstor_exec_and_log \
 if [ "$CLONE_MODE" = "copy" ]; then
 
     # Attach diskless resources on SRC_RES side
-    SRC_RES_HOSTS=$(linstor_get_hosts_for_res "$SRC_RES")
-    if ! [[ " $SRC_RES_HOSTS " =~ " $SRC_HOST " ]]; then
-        linstor_exec_and_log \
-            "resource create -s $DISKLESS_POOL $SRC_HOST $SRC_RES"
+    if linstor_attach_diskless "$SRC_HOST" "$SRC_RES" "$DISKLESS_POOL"; then
         LINSTOR_CLEANUP_RES+=" $SRC_HOST:$SRC_RES"
     fi
-    DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
-    if ! [[ " $DST_RES_HOSTS " =~ " $SRC_HOST " ]]; then
-        linstor_exec_and_log \
-            "resource create -s $DISKLESS_POOL $SRC_HOST $DST_RES"
+    if linstor_attach_diskless "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"; then
         if [ "$SRC_HOST" != "$DST_HOST" ]; then
             LINSTOR_CLEANUP_RES+=" $SRC_HOST:$DST_RES"
         fi
     fi
     
     # Clone image from SRC_RES to DST_RES
-    flock -s "/var/lock/one/linstor_un-${SRC_HOST}-${SRC_RES}.lock" \
-    flock -s "/var/lock/one/linstor_un-${SRC_HOST}-${DST_RES}.lock" \
+    flock -s "/var/lock/one/linstor_un-detach-${SRC_HOST}-${SRC_RES}.lock" \
+    flock -s "/var/lock/one/linstor_un-detach-${SRC_HOST}-${DST_RES}.lock" \
         ssh_exec_and_log "$SRC_HOST" \
             "cat $SRC_DEV > $DST_DEV" \
             "Error cloning $SRC_DEV to $DST_DEV on $SRC_HOST"
 fi
 
-# Attach diskless resources on destination host
-DST_RES_HOSTS=$(linstor_get_hosts_for_res "$DST_RES")
-if ! [[ " $DST_RES_HOSTS " =~ " $DST_HOST " ]]; then
-    linstor_exec_and_log \
-        "resource create -s $DISKLESS_POOL $DST_HOST $DST_RES"
-fi
+# Attach diskless resource on destination host
+linstor_attach_diskless "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"
 
 # Link device on destination host
 LINK_CMD=$(cat <<EOF
