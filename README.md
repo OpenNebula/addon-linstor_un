@@ -16,7 +16,7 @@ Why not simply use the [official Linstor driver](https://github.com/OpenNebula/a
   This driver uses standard OpenNebula library which provides simplicity developing and debugging driver actions, e.g. you will always see what exact command was unsuccessful from the VM log, if something went wrong.
 * Does not requires external dependings.
   Official driver needs configured linstor-client and extra python-bindings on every compute node. This driver has a central managment model from the OpenNebula frontend node, so it requires only `jq` and `linstor-client` installed on the frontend node, and no external components on compute nodes. It's also worth noting, that you still need linstor-satellite and drbd9 module to build linstor-cluster.
-* Can work with newer versions of OpenNebula and supports modern linstor features like **REPLICAS_ON_SAME**, **REPLICAS_ON_DIFFERENT** and others.
+* Usually supports newer versions of OpenNebula.
 * Can work with any backend, even without snapshots support.
 
 ## Compatibility
@@ -113,6 +113,9 @@ To use your Linstor cluster with the OpenNebula, you need to define a System and
 | `CLONE_MODE`              | `snapshot` - will create snapshot for instantiate VMs. `copy` - create full copy of image, this is default mode. | NO        |
 | `BRIDGE_LIST`             | Space separated hosts list used for transfer operations. Copy data between images and etc. Default: all hosts.   | NO        |
 | `LS_CONTROLLERS`          | Comma separated linstor controllers list for establish connection.                                               | NO        |
+| `LS_CERTFILE`             | SSL certificate file.                                                                                            | NO        |
+| `LS_KEYFILE`              | SSL key file.                                                                                                    | NO        |
+| `LS_CAFILE`               | SSL CA certificate file.                                                                                         | NO        |
 | `NODE_LIST`               | Space separated hosts list to place replicas. Replicas will always be created on all these hosts.                | **YES** * |
 | `LAYER_LIST`              | Comma separated layer list to place replicas.                                                                    | NO        |
 | `PROVIDERS`               | Comma separated providers list to place replicas.                                                                | NO        |
