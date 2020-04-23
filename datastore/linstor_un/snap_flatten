@@ -59,7 +59,7 @@ SRC_RES="$(echo "$SRC_DEV" | $AWK -F/ '{print $(NF-1)}')"
 
 linstor_load_keys
 
-ALL_SNAP_IDS=$(linstor_get_snaps_for_res "$SRC_RES" 1)
+ALL_SNAP_IDS=$(linstor_get_snap_ids_for_res "$SRC_RES" 1)
 
 if [ -z "$ALL_SNAP_IDS" ]; then
     error_message "Can not find any snapshots for $SRC_RES"

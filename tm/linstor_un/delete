@@ -142,7 +142,7 @@ fi
 
 log "Deleting $DST_RES"
 
-ALL_SNAP_IDS=$(linstor_get_snaps_for_res "$DST_RES" 1)
+ALL_SNAP_IDS=$(linstor_get_snap_ids_for_res "$DST_RES" 1)
 
 for SNAP_ID in $ALL_SNAP_IDS; do
 
@@ -163,9 +163,7 @@ linstor_exec_and_log \
     "resource-definition delete $DST_RES"
 
 # Check if source image have snapshot (CLONE_MODE=snapshot)
-$LINSTOR -m --output-version v0 snapshot list | \
-    $JQ -er ".[].snapshot_dfns[]? |
-    select(.rsc_name==\"${SRC_RES}\" and .snapshot_name==\"${DST_RES}\")" >/dev/null
+linstor_get_snap_names_for_res "$SRC_RES" | grep -q "^${DST_RES}$"
 
 # Remove snapshot from SOURCE image if found
 if [ $? -eq 0 ]; then
