@@ -58,6 +58,10 @@ while IFS= read -r -d '' element; do
 done < <(onedatastore show -x $DSID | $XPATH \
                     /DATASTORE/TEMPLATE/BRIDGE_LIST \
                     /DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /DATASTORE/TEMPLATE/LS_CERTFILE \
+                    /DATASTORE/TEMPLATE/LS_KEYFILE \
+                    /DATASTORE/TEMPLATE/LS_CAFILE \
+                    /DATASTORE/TEMPLATE/RESOURCE_GROUP \
                     /DATASTORE/TEMPLATE/NODE_LIST \
                     /DATASTORE/TEMPLATE/LAYER_LIST \
                     /DATASTORE/TEMPLATE/PROVIDERS \
@@ -72,6 +76,10 @@ done < <(onedatastore show -x $DSID | $XPATH \
 
 BRIDGE_LIST="${XPATH_ELEMENTS[j++]}"
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+LS_CERTFILE="${XPATH_ELEMENTS[j++]}"
+LS_KEYFILE="${XPATH_ELEMENTS[j++]}"
+LS_CAFILE="${XPATH_ELEMENTS[j++]}"
+RESOURCE_GROUP="${XPATH_ELEMENTS[j++]}"
 NODE_LIST="${XPATH_ELEMENTS[j++]}"
 LAYER_LIST="${XPATH_ELEMENTS[j++]}"
 PROVIDERS="${XPATH_ELEMENTS[j++]}"

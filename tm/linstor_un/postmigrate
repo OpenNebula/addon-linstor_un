@@ -77,9 +77,15 @@ unset i j XPATH_ELEMENTS
 while IFS= read -r -d '' element; do
     XPATH_ELEMENTS[i++]="$element"
 done < <(onedatastore show -x $DSID | $XPATH \
-                    /DATASTORE/TEMPLATE/LS_CONTROLLERS)
+                    /DATASTORE/TEMPLATE/LS_CONTROLLERS \
+                    /DATASTORE/TEMPLATE/LS_CERTFILE \
+                    /DATASTORE/TEMPLATE/LS_KEYFILE \
+                    /DATASTORE/TEMPLATE/LS_CAFILE)
 
 LS_CONTROLLERS="${XPATH_ELEMENTS[j++]}"
+LS_CERTFILE="${XPATH_ELEMENTS[j++]}"
+LS_KEYFILE="${XPATH_ELEMENTS[j++]}"
+LS_CAFILE="${XPATH_ELEMENTS[j++]}"
 
 linstor_load_keys
 
