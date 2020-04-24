@@ -49,7 +49,9 @@ done < <(echo "$DRV_ACTION" | base64 -d | $XPATH \
                     /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/REPLICAS_ON_SAME \
                     /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/REPLICAS_ON_DIFFERENT \
                     /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/AUTO_PLACE \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/REPLICA_COUNT \
                     /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/CHECKPOINT_AUTO_PLACE \
+                    /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/CHECKPOINT_REPLICA_COUNT \
                     /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH \
                     /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH_REGEX \
                     /VMM_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/STORAGE_POOL \
@@ -68,7 +70,9 @@ PROVIDERS="${XPATH_ELEMENTS[j++]}"
 REPLICAS_ON_SAME="${XPATH_ELEMENTS[j++]}"
 REPLICAS_ON_DIFFERENT="${XPATH_ELEMENTS[j++]}"
 AUTO_PLACE="${XPATH_ELEMENTS[j++]}"
+REPLICA_COUNT="${XPATH_ELEMENTS[j++]:-$AUTO_PLACE}"
 CHECKPOINT_AUTO_PLACE="${XPATH_ELEMENTS[j++]}"
+CHECKPOINT_REPLICA_COUNT="${XPATH_ELEMENTS[j++]:-$CHECKPOINT_AUTO_PLACE}"
 DO_NOT_PLACE_WITH="${XPATH_ELEMENTS[j++]}"
 DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
 STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
@@ -130,12 +134,17 @@ fi
 
 # Deploy new volume
 linstor_exec_and_log \
-    "resource-definition create $DST_RES" 
+    "resource-definition create $DST_RES $RD_CREATE_ARGS"
 LINSTOR_CLEANUP_RD+=" $DST_RES"
 linstor_exec_and_log \
-    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${ORIGINAL_SIZE_K}K"
-linstor_exec_and_log \
-    "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
+    "volume-definition create $DST_RES ${ORIGINAL_SIZE_K}K $VOL_CREATE_ARGS"
+if [ -n "$RESOURCE_GROUP" ]; then
+    linstor_exec_and_log \
+        "resource-definition auto-place $DST_RES $RD_AUTO_PLACE_ARGS"
+else
+    linstor_exec_and_log \
+        "resource create $NODE_LIST $DST_RES $RES_CREATE_ARGS"
+fi
 
 # Attach diskless resource for DST_RES on SRC_HOST
 if linstor_attach_diskless "$SRC_HOST" "$DST_RES" "$DISKLESS_POOL"; then

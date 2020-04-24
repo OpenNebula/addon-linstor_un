@@ -76,6 +76,7 @@ done < <(onedatastore show -x $DS_ID | $XPATH \
                     /DATASTORE/TEMPLATE/REPLICAS_ON_SAME \
                     /DATASTORE/TEMPLATE/REPLICAS_ON_DIFFERENT \
                     /DATASTORE/TEMPLATE/AUTO_PLACE \
+                    /DATASTORE/TEMPLATE/REPLICA_COUNT \
                     /DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH \
                     /DATASTORE/TEMPLATE/DO_NOT_PLACE_WITH_REGEX \
                     /DATASTORE/TEMPLATE/STORAGE_POOL \
@@ -93,6 +94,7 @@ PROVIDERS="${XPATH_ELEMENTS[j++]}"
 REPLICAS_ON_SAME="${XPATH_ELEMENTS[j++]}"
 REPLICAS_ON_DIFFERENT="${XPATH_ELEMENTS[j++]}"
 AUTO_PLACE="${XPATH_ELEMENTS[j++]}"
+REPLICA_COUNT="${XPATH_ELEMENTS[j++]:-$AUTO_PLACE}"
 DO_NOT_PLACE_WITH="${XPATH_ELEMENTS[j++]}"
 DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
 STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
@@ -103,13 +105,15 @@ ENCRYPTION="${XPATH_ELEMENTS[j++]}"
 # Create new volume
 #-------------------------------------------------------------------------------
 
-if [ -z "$NODE_LIST" ] && [ -z "$AUTO_PLACE" ]; then
-    error_message "Datastore template missing 'NODE_LIST' or 'AUTO_PLACE' attribute."
-    exit -1
-fi
-if [ -z "$STORAGE_POOL" ]; then
-    error_message "Datastore template missing 'STORAGE_POOL' attribute."
-    exit -1
+if [ -z "$RESOURCE_GROUP" ]; then
+    if [ -z "$NODE_LIST" ] && [ -z "$REPLICA_COUNT" ]; then
+        error_message "Datastore template missing 'RESOURCE_GROUP', 'NODE_LIST' or 'REPLICA_COUNT' attribute."
+        exit -1
+    fi
+    if [ -z "$STORAGE_POOL" ]; then
+        error_message "Datastore template missing 'STORAGE_POOL' attribute."
+        exit -1
+    fi
 fi
 
 linstor_load_keys
@@ -119,12 +123,17 @@ trap linstor_cleanup_trap EXIT
 
 # Deploy new volume
 linstor_exec_and_log \
-    "resource-definition create $DST_RES" 
+    "resource-definition create $DST_RES $RD_CREATE_ARGS" 
 LINSTOR_CLEANUP_RD+=" $DST_RES"
 linstor_exec_and_log \
-    "volume-definition create $VOL_CREATE_ARGS $DST_RES ${SIZE}M"
-linstor_exec_and_log \
-    "resource create $RES_CREATE_ARGS --storage-pool $STORAGE_POOL $NODE_LIST $DST_RES"
+    "volume-definition create $DST_RES ${SIZE}M $VOL_CREATE_ARGS"
+if [ -n "$RESOURCE_GROUP" ]; then
+    linstor_exec_and_log \
+        "resource-definition auto-place $DST_RES $RD_AUTO_PLACE_ARGS"
+else
+    linstor_exec_and_log \
+        "resource create $NODE_LIST $DST_RES $RES_CREATE_ARGS"
+fi
 
 # Set properties
 linstor_exec_and_log \

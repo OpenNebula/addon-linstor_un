@@ -62,12 +62,20 @@ LS_CAFILE="${XPATH_ELEMENTS[j++]}"
 RESOURCE_GROUP="${XPATH_ELEMENTS[j++]}"
 STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 
-if [ -z "$STORAGE_POOL" ]; then
-    error_message "Datastore template missing 'STORAGE_POOL' attribute."
-    exit -1
-fi
-
 linstor_load_keys
+
+if [ -z "$STORAGE_POOL" ]; then
+    if [ -z "$RESOURCE_GROUP" ]; then
+        error_message "Datastore template missing 'STORAGE_POOL' attribute."
+        exit -1
+    fi
+    STORAGE_POOL=$($LINSTOR -m --output-version v0 resource-group list -r "$RESOURCE_GROUP" \
+        | $JQ -r ".[][].select_filter.storage_pool")
+    if [ -z "$STORAGE_POOL" ]; then
+        error_message "Resource group missing 'StoragePool' attribute."
+        exit -1
+    fi
+fi
 
 # ------------ Compute datastore usage -------------
 

@@ -103,34 +103,48 @@ DS_MAD_CONF = [
 +LIVE_DISK_SNAPSHOTS="kvm-qcow2 kvm-ceph kvm-linstor_un"
 ```
 
+## LINSTOR Configuration
+
+* Install Linstor-satellite and DRBD9 kernel module on all your compute nodes.
+* Nodes in linstor must have same name like for OpenNebula hosts.
+* Linstor-client should be installed and working on control-plane nodes.
+* Create Resource group:
+  ```
+  linstor resource-group create opennebula --place-count 2 --storage-pool thinlvm
+  linstor volume-group create opennebula
+  ```
+  Resource group must have storage-pool assigned and single volume-group created.
+
 ## OpenNebula Configuration
 
 To use your Linstor cluster with the OpenNebula, you need to define a System and Image datastores. Each Image/System Datastore pair will share same following Linstor configuration attributes:
 
-| Attribute                 | Description                                                                                                      | Mandatory |
-|---------------------------|------------------------------------------------------------------------------------------------------------------|-----------|
-| `NAME`                    | The name of the datastore                                                                                        | **YES**   |
-| `CLONE_MODE`              | `snapshot` - will create snapshot for instantiate VMs. `copy` - create full copy of image, this is default mode. | NO        |
-| `BRIDGE_LIST`             | Space separated hosts list used for transfer operations. Copy data between images and etc. Default: all hosts.   | NO        |
-| `LS_CONTROLLERS`          | Comma separated linstor controllers list for establish connection.                                               | NO        |
-| `LS_CERTFILE`             | SSL certificate file.                                                                                            | NO        |
-| `LS_KEYFILE`              | SSL key file.                                                                                                    | NO        |
-| `LS_CAFILE`               | SSL CA certificate file.                                                                                         | NO        |
-| `NODE_LIST`               | Space separated hosts list to place replicas. Replicas will always be created on all these hosts.                | **YES** * |
-| `LAYER_LIST`              | Comma separated layer list to place replicas.                                                                    | NO        |
-| `PROVIDERS`               | Comma separated providers list to place replicas.                                                                | NO        |
-| `REPLICAS_ON_SAME`        | Space separated aux-properties list to always place replicas on hosts with same aux-property.                    | NO        |
-| `REPLICAS_ON_DIFFERENT`   | Space separated aux-properties list to always place replicas on hosts with different aux-property.               | NO        |
-| `AUTO_PLACE`              | Number of replicas for creating new volumes.                                                                     | **YES** * |
-| `CHECKPOINT_AUTO_PLACE`   | Number of replicas for save checkpoint file for suspend and offline migration process.                           | NO        |
-| `DO_NOT_PLACE_WITH`       | Space separated resources list to avid placing replicas on same place with them.                                 | NO        |
-| `DO_NOT_PLACE_WITH_REGEX` | Regular expression to avoid placing replicas on same place with targeted resources.                              | NO        |
-| `STORAGE_POOL`            | Storage pool name to place replicas.                                                                             | **YES**   |
-| `DISKLESS_POOL`           | Diskless pool to place diskless replicas. Default: `DfltDisklessStorPool`.                                       | NO        |
-| `PREFER_NODE`             | `yes` - try to place and copy the data on the node that will afterwards be used by the VM                        | NO        |
-| `ENCRYPTION`              | `yes` - will enable encryption during volume creation.                                                           | NO        |
+| Attribute                  | Description                                                                                                      | Mandatory            |
+|----------------------------|------------------------------------------------------------------------------------------------------------------|----------------------|
+| `NAME`                     | The name of the datastore                                                                                        | **YES**              |
+| `CLONE_MODE`               | `snapshot` - will create snapshot for instantiate VMs. `copy` - create full copy of image, this is default mode. | NO                   |
+| `BRIDGE_LIST`              | Space separated hosts list used for transfer operations. Copy data between images and etc. Default: all hosts.   | NO                   |
+| `LS_CONTROLLERS`           | Comma separated linstor controllers list for establish connection.                                               | NO                   |
+| `LS_CERTFILE`              | SSL certificate file.                                                                                            | NO                   |
+| `LS_KEYFILE`               | SSL key file.                                                                                                    | NO                   |
+| `LS_CAFILE`                | SSL CA certificate file.                                                                                         | NO                   |
+| `RESOURCE_GROUP`           | Resource group to spawn the resources.                                                                           | **YES** <sup>1</sup> |
+| `NODE_LIST`                | Space separated hosts list to place replicas. Replicas will always be created on all these hosts.                | **YES** <sup>1</sup> |
+| `LAYER_LIST`               | Comma separated layer list to place replicas.                                                                    | NO                   |
+| `PROVIDERS`                | Comma separated providers list to place replicas.                                                                | NO                   |
+| `REPLICAS_ON_SAME`         | Space separated aux-properties list to always place replicas on hosts with same aux-property.                    | NO                   |
+| `REPLICAS_ON_DIFFERENT`    | Space separated aux-properties list to always place replicas on hosts with different aux-property.               | NO                   |
+| `REPLICA_COUNT`            | Number of replicas for creating new volumes.                                                                     | **YES** <sup>1</sup> |
+| `CHECKPOINT_REPLICA_COUNT` | Number of replicas for save checkpoint file for suspend and offline migration process.                           | NO                   |
+| `DO_NOT_PLACE_WITH`        | Space separated resources list to avid placing replicas on same place with them.                                 | NO                   |
+| `DO_NOT_PLACE_WITH_REGEX`  | Regular expression to avoid placing replicas on same place with targeted resources.                              | NO                   |
+| `STORAGE_POOL`             | Storage pool name to place replicas.                                                                             | **YES** <sup>2</sup> |
+| `DISKLESS_POOL`            | Diskless pool to place diskless replicas. Default: `DfltDisklessStorPool`.                                       | NO                   |
+| `PREFER_NODE`              | `yes` - try to place and copy the data on the node that will afterwards be used by the VM                        | NO                   |
+| `ENCRYPTION`               | `yes` - will enable encryption during volume creation.                                                           | NO                   |
 
-*\* - only one attribute required*
+*<sup>1</sup> - only one attribute required*  
+*<sup>2</sup> - required if no RESOURCE_GROUP specified*
 
 > **Note**: You may add another Image and System Datastores pointing to other pools with different allocation/replication policies in Linstor.
 
@@ -153,8 +167,7 @@ An example of datastore:
 cat > images-ds.conf <<EOT
 NAME="linstor-images"
 TYPE="IMAGE_DS"
-STORAGE_POOL="data"
-AUTO_PLACE="2"
+RESOURCE_GROUP="opennebula"
 DISK_TYPE="BLOCK"
 DS_MAD="linstor_un"
 TM_MAD="linstor_un"
@@ -181,9 +194,9 @@ cat > system-ds.conf <<EOT
 NAME="linstor-system"
 TYPE="SYSTEM_DS"
 STORAGE_POOL="data"
-AUTO_PLACE="2"
+RESOURCE_GROUP="opennebula"
 PREFER_NODE="yes"
-CHECKPOINT_AUTO_PLACE="1"
+CHECKPOINT_REPLICA_COUNT="1"
 TM_MAD="linstor_un"
 EOT
 

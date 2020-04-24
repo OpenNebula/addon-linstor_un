@@ -113,6 +113,7 @@ linstor_vd_size() {
 #   - LINSTOR_CURL
 #   - VOL_CREATE_ARGS
 #   - RES_CREATE_ARGS
+#   - RES_CREATE_SHORT_ARGS
 #   - RD_CREATE_ARGS
 #--------------------------------------------------------------------------------
 linstor_load_keys() {
@@ -133,27 +134,38 @@ linstor_load_keys() {
     fi
     if [ -n "$REPLICAS_ON_SAME" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --replicas-on-same $REPLICAS_ON_SAME"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --replicas-on-same $REPLICAS_ON_SAME"
     fi
     if [ -n "$REPLICAS_ON_DIFFERENT" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --replicas-on-different $REPLICAS_ON_DIFFERENT"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --replicas-on-different $REPLICAS_ON_DIFFERENT"
     fi
-    if [ -n "$AUTO_PLACE" ]; then
+    if [ -n "$REPLICA_COUNT" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --auto-place $AUTO_PLACE"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --place-count $REPLICA_COUNT"
     fi
     if [ -n "$DO_NOT_PLACE_WITH" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --do-not-place-with $DO_NOT_PLACE_WITH"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --do-not-place-with $DO_NOT_PLACE_WITH"
     fi
     if [ -n "$DO_NOT_PLACE_WITH_REGEX" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --do-not-place-with-regex $DO_NOT_PLACE_WITH_REGEX"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --do-not-place-with-regex $DO_NOT_PLACE_WITH_REGEX"
     fi
     if [ -n "$LAYER_LIST" ]; then
         RD_CREATE_ARGS="$RD_CREATE_ARGS --layer-list $LAYER_LIST"
         RES_CREATE_ARGS="$RES_CREATE_ARGS --layer-list $LAYER_LIST"
         RES_CREATE_SHORT_ARGS="$RES_CREATE_ARGS --layer-list $LAYER_LIST"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --layer-list $LAYER_LIST"
     fi
     if [ -n "$PROVIDERS" ]; then
         RES_CREATE_ARGS="$RES_CREATE_ARGS --providers $PROVIDERS"
         RES_CREATE_SHORT_ARGS="$RES_CREATE_ARGS --providers $PROVIDERS"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --providers $PROVIDERS"
+    fi
+    if [ -n "$STORAGE_POOL" ]; then
+        RES_CREATE_ARGS="$RES_CREATE_ARGS --storage-pool $STORAGE_POOL"
+        RD_AUTO_PLACE_ARGS="$RD_AUTO_PLACE_ARGS --storage-pool $STORAGE_POOL"
     fi
     if [ "$ENCRYPTION" = "yes" ]; then
         VOL_CREATE_ARGS="$VOL_CREATE_ARGS --encrypt"
