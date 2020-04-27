@@ -131,7 +131,7 @@ linstor_attach_diskless "$SRC_HOST" "$TMP_RES" "$DISKLESS_POOL"
 
 # Clone image from TMP_RES to SRC_RES
 ssh_exec_and_log "$SRC_HOST" \
-    "cat $TMP_DEV > $SRC_DEV" \
+    "$DD if=$TMP_DEV of=$SRC_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sync,sparse}" \
     "Error cloning $TMP_DEV to $SRC_DEV on $SRC_HOST"
 
 exit 0

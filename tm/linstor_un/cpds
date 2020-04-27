@@ -160,12 +160,12 @@ if [ "${LCM_STATE}" = '26' ] && [ "${SNAP_ID}" = '-1' ]; then
             echo "Could not domfsfreeze or suspend domain" >&2
             exit 1
         fi
-        cat ${SRC_DEV} > ${DST_DEV}
-    fi
+        $DD if=$SRC_DEV of=$DST_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sync,sparse}
+        fi
 EOF
 )
 else
-    CPDS_CMD_EXPORT="cat ${SRC_DEV} > ${DST_DEV}"
+    CPDS_CMD_EXPORT="$DD if=$SRC_DEV of=$DST_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sync,sparse}"
 fi
 
 #-------------------------------------------------------------------------------
@@ -230,7 +230,7 @@ else
     
     # Clone image from TMP_RES to DST_RES
     ssh_exec_and_log "$SRC_HOST" \
-        "cat $TMP_DEV > $DST_DEV" \
+        "$DD if=$TMP_DEV of=$DST_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sync,sparse}" \
         "Error cloning $TMP_DEV to $DST_DEV on $SRC_HOST"
 
     # Leave only TMP_RES in LINSTOR_CLEANUP_RD
