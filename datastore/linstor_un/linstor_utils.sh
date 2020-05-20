@@ -486,7 +486,7 @@ function linstor_attach_diskless {
     local RES_HOSTS="$(linstor_get_hosts_for_res $RES)"
     if ! [[ " $RES_HOSTS " =~ " $HOST " ]]; then
         linstor_exec_and_log \
-            "resource create -s $DISKLESS_POOL $HOST $RES"
+            "resource create $HOST $RES -s $DISKLESS_POOL"
         EXEC_RC=0
     fi
 

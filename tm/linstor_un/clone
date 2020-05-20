@@ -166,12 +166,12 @@ if [ "$CLONE_MODE" = "copy" ]; then
         "volume-definition create $DST_RES ${SIZE}M $VOL_CREATE_ARGS"
     if [ "${PREFER_NODE,,}" = "yes" ]; then
         STORAGE_POOL=${STORAGE_POOL:-$($LINSTOR -m --output-version v0 resource-group list -r "$RESOURCE_GROUP" \
-            | $JQ -r ".[][].select_filter.storage_pool")}
+        | $JQ -r '.[][].select_filter.storage_pool_list // [] | join(" ")')}
         if [ -z "$STORAGE_POOL" ]; then
             error_message "Resource group missing 'StoragePool' attribute."
             exit -1
         fi
-        NODE_HAS_STORAGE_POOL=$($LINSTOR -m --output-version v0 storage-pool list --node "$DST_HOST" --storage-pool "$STORAGE_POOL" \
+        NODE_HAS_STORAGE_POOL=$($LINSTOR -m --output-version v0 storage-pool list --node "$DST_HOST" --storage-pool $STORAGE_POOL \
             | $JQ -r ".[].stor_pools[] | .free_space.free_capacity / 1024 > ${SIZE}" )
         if [ "$NODE_HAS_STORAGE_POOL" = "true" ]; then
             linstor_exec_and_log \

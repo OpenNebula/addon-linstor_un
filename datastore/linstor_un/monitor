@@ -70,7 +70,7 @@ if [ -z "$STORAGE_POOL" ]; then
         exit -1
     fi
     STORAGE_POOL=$($LINSTOR -m --output-version v0 resource-group list -r "$RESOURCE_GROUP" \
-        | $JQ -r ".[][].select_filter.storage_pool")
+        | $JQ -r '.[][].select_filter.storage_pool_list // [] | join(" ")')
     if [ -z "$STORAGE_POOL" ]; then
         error_message "Resource group missing 'StoragePool' attribute."
         exit -1
@@ -80,7 +80,7 @@ fi
 # ------------ Compute datastore usage -------------
 
 MONITOR_SCRIPT=$(cat <<EOF
-    $LINSTOR -m --output-version v0 storage-pool list -s "$STORAGE_POOL"
+    $LINSTOR -m --output-version v0 storage-pool list -s $STORAGE_POOL
 EOF
 )
 

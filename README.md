@@ -24,8 +24,8 @@ Why not simply use the [official Linstor driver](https://github.com/OpenNebula/a
 This add-on is compatible with:
 
 * OpenNebula 5.6+
-* Linstor server 1.2.0+
-* Linstor client 1.0.4+
+* Linstor server 1.7.0+
+* Linstor client 1.1.1+
 
 ## OpenNebula Installation
 
@@ -138,7 +138,7 @@ To use your Linstor cluster with the OpenNebula, you need to define a System and
 | `CHECKPOINT_REPLICA_COUNT` | Number of replicas for save checkpoint file for suspend and offline migration process.                           | NO                   |
 | `DO_NOT_PLACE_WITH`        | Space separated resources list to avid placing replicas on same place with them.                                 | NO                   |
 | `DO_NOT_PLACE_WITH_REGEX`  | Regular expression to avoid placing replicas on same place with targeted resources.                              | NO                   |
-| `STORAGE_POOL`             | Storage pool name to place replicas.                                                                             | **YES** <sup>2</sup> |
+| `STORAGE_POOL`             | Space separated storage pool names to place replicas.                                                            | **YES** <sup>2</sup> |
 | `DISKLESS_POOL`            | Diskless pool to place diskless replicas. Default: `DfltDisklessStorPool`.                                       | NO                   |
 | `PREFER_NODE`              | `yes` - try to place and copy the data on the node that will afterwards be used by the VM                        | NO                   |
 | `ENCRYPTION`               | `yes` - will enable encryption during volume creation.                                                           | NO                   |
