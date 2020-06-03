@@ -166,7 +166,7 @@ multiline_exec_and_log \
     "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$TMP_DST bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
     "Error dumping $SRC to $DST_HOST:$TMP_DST"
 
-ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^virtual size: / {print $4}')"
+ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^virtual size: / {print $(NF-2)}')"
 if [ -z "$ORIGINAL_SIZE_B" ]; then
     error_message "Error getting $TMP_DST size on $DST_HOST"
     exit -1
