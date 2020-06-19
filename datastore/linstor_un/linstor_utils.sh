@@ -110,7 +110,6 @@ linstor_vd_size() {
 #   - ENCRYPTION
 #   Sets environment variables:
 #   - LINSTOR
-#   - LINSTOR_CURL
 #   - VOL_CREATE_ARGS
 #   - RES_CREATE_ARGS
 #   - RES_CREATE_SHORT_ARGS
@@ -170,37 +169,6 @@ linstor_load_keys() {
     if [ "$ENCRYPTION" = "yes" ]; then
         VOL_CREATE_ARGS="$VOL_CREATE_ARGS --encrypt"
     fi
-
-    linstor_curl_load_keys
-}
-
-#--------------------------------------------------------------------------------
-# Read environment variables and generate keys for linstor curl commands
-#   Gets environment variables:
-#   - LS_CERTFILE
-#   - LS_KEYFILE
-#   - LS_CAFILE
-#   Sets environment variables:
-#   - LINSTOR_CURL
-#--------------------------------------------------------------------------------
-linstor_curl_load_keys() {
-    local CONFIG="/etc/linstor/linstor-client.conf"
-    if [ -f "$CONFIG" ]; then
-        LS_CERTFILE=${LS_CAFILE:-$(awk -F ' *= *' '$1 == "  certfile" {gsub(/"/, "", $2); print $2}' "$CONFIG")}
-        LS_KEYFILE=${LS_KEYFILE:-$(awk -F ' *= *' '$1 == "  keyfile" {gsub(/"/, "", $2); print $2}' "$CONFIG")}
-        LS_CAFILE=${LS_CAFILE:-$(awk -F ' *= *' '$1 == "  cafile" {gsub(/"/, "", $2); print $2}' "$CONFIG")}
-    fi
-
-    LINSTOR_CURL="$CURL --fail -sS -k -L"
-    if [ -n "$LS_CERTFILE" ]; then
-        LINSTOR_CURL="$LINSTOR_CURL --cert $LS_CERTFILE"
-    fi
-    if [ -n "$LS_KEYFILE" ]; then
-        LINSTOR_CURL="$LINSTOR_CURL --key $LS_KEYFILE"
-    fi
-    if [ -n "$LS_CAFILE" ]; then
-        LINSTOR_CURL="$LINSTOR_CURL --cacert $LS_CAFILE"
-    fi
 }
 
 #-------------------------------------------------------------------------------
@@ -235,11 +203,9 @@ function linstor_get_diskless_hosts_for_res {
 #-------------------------------------------------------------------------------
 function linstor_get_snap_names_for_res {
     local RES="$1"
-    # Workaround for:
-    # - https://github.com/LINBIT/linstor-server/issues/116
-    # - https://github.com/LINBIT/linstor-server/issues/117
-    local RD_URL=$($LINSTOR --curl rd l | awk '{print $(NF)}')
-    $LINSTOR_CURL "${RD_URL}/${RES}/snapshots" | $JQ -r ".[].name"
+    $LINSTOR -m --output-version v0 snapshot list -r $RES | \
+        $JQ -r ".[].snapshot_dfns[]?.snapshot_name" | \
+        xargs
 }
 
 #-------------------------------------------------------------------------------
