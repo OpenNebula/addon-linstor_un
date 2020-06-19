@@ -130,12 +130,16 @@ trap linstor_cleanup_trap EXIT
 
 set_up_datastore "$BASE_PATH" "$RESTRICTED_DIRS" "$SAFE_DIRS"
 
-IMAGE_HASH=`generate_image_hash`
-TMP_DST="$STAGING_DIR/$IMAGE_HASH"
+# -------- Get image and datastore arguments from OpenNebula core ------------
 
+IMAGE_HASH=`generate_image_hash`
 DST_RES="one-image-${ID}"
 DST_DEV="/dev/drbd/by-res/${DST_RES}/0"
 DST="$DST_DEV"
+TMP_TYPE=none
+TMP_DST="$STAGING_DIR/$IMAGE_HASH"
+TMP_RES="${DST_RES}-tmp"
+TMP_DEV="/dev/drbd/by-res/${TMP_RES}/0"
 
 DOWNLOADER_ARGS=`set_downloader_args "$MD5" "$SHA1" "$NO_DECOMPRESS" "$LIMIT_TRANSFER_BW" "$SRC" -`
 
@@ -161,12 +165,59 @@ http://*|https://*)
     ;;
 esac
 
-IMPORT_TMP=0
-ORIGINAL_INFO=$($QEMU_IMG info --output=json "$SRC" | $JQ -r '"\(.format):\(."virtual-size")"')
-ORIGINAL_FORMAT=${ORIGINAL_INFO%:*}
-ORIGINAL_SIZE_B=${ORIGINAL_INFO##*:}
-if [ "$ORIGINAL_FORMAT" != "raw" ] || [ -z "$ORIGINAL_SIZE_B" ]; then
-    IMPORT_TMP=1
+unset i j JSON_ELEMENTS
+
+while read -r element; do
+    if [ "$element" != "null" ]; then
+        JSON_ELEMENTS[i++]="$element"
+    else
+        JSON_ELEMENTS[i++]=""
+    fi
+done < <($QEMU_IMG info --output=json "$SRC" | $JQ -r '.format, ."virtual-size", ."actual-size"')
+
+ORIGINAL_FORMAT="${JSON_ELEMENTS[j++]}"
+ORIGINAL_SIZE_B="${JSON_ELEMENTS[j++]}"
+ORIGINAL_ACTUAL_SIZE_B="${JSON_ELEMENTS[j++]:-$ORIGINAL_SIZE_B}"
+
+# ------------------------------------------------------------------------------
+# If image format is not raw and size is known, we can create temprorary device
+# to save the image as is and then convert it to raw
+# ------------------------------------------------------------------------------
+
+if [ "$ORIGINAL_FORMAT" != "raw" ] && [ -n "$ORIGINAL_ACTUAL_SIZE_B" ]; then
+        TMP_TYPE=dev
+        # Deploy temprorary volume
+        if [ "$ORIGINAL_ACTUAL_SIZE_B" -lt 4096 ]; then
+            ORIGINAL_ACTUAL_SIZE_B="4096"
+        fi
+        linstor_exec_and_log \
+            "resource-definition create $TMP_RES $RD_CREATE_ARGS"
+        LINSTOR_CLEANUP_RD+=" $TMP_RES"
+        linstor_exec_and_log \
+            "volume-definition create $TMP_RES ${ORIGINAL_ACTUAL_SIZE_B}B $VOL_CREATE_ARGS"
+        if [ -n "$RESOURCE_GROUP" ]; then
+            linstor_exec_and_log \
+                "resource-definition auto-place $TMP_RES $RD_AUTO_PLACE_ARGS"
+        else
+            linstor_exec_and_log \
+                "resource create $NODE_LIST $TMP_RES $RES_CREATE_ARGS"
+        fi
+
+        # Attach diskless resource for DST_RES on DST_HOST
+        linstor_attach_diskless "$DST_HOST" "$TMP_RES" "$DISKLESS_POOL"
+
+        multiline_exec_and_log \
+            "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$TMP_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
+            "Error dumping $SRC to $DST_HOST:$TMP_DEV"
+fi
+
+# ------------------------------------------------------------------------------
+# If image format is not raw and size is unknown, we forced to use staging
+# directory on the node to save the image and convert it afterwards
+# ------------------------------------------------------------------------------
+
+if [ "$ORIGINAL_FORMAT" != "raw" ] && [ -z "$ORIGINAL_ACTUAL_SIZE_B" ]; then
+    TMP_TYPE=fs
     multiline_exec_and_log \
         "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$TMP_DST bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
         "Error dumping $SRC to $DST_HOST:$TMP_DST"
@@ -177,11 +228,13 @@ if [ "$ORIGINAL_FORMAT" != "raw" ] || [ -z "$ORIGINAL_SIZE_B" ]; then
     fi
 fi
 
+# ------------------------------------------------------------------------------
+# Deploy new volume
+# ------------------------------------------------------------------------------
+
 if [ "$ORIGINAL_SIZE_B" -lt 4096 ]; then
     ORIGINAL_SIZE_B="4096"
 fi
-
-# Deploy new volume
 linstor_exec_and_log \
     "resource-definition create $DST_RES $RD_CREATE_ARGS"
 LINSTOR_CLEANUP_RD+=" $DST_RES"
@@ -200,23 +253,37 @@ if linstor_attach_diskless "$DST_HOST" "$DST_RES" "$DISKLESS_POOL"; then
     LINSTOR_CLEANUP_RES+=" $DST_HOST:$DST_RES"
 fi
 
-# Import image
+# Import image from fs
 IMPORT_CMD=$(cat <<EOF
-    set -e -o pipefail
     $QEMU_IMG convert -O raw $TMP_DST $DST_DEV
+    EC=$?
     # remove original
     $RM -f $TMP_DST
+    exit $EC
 EOF
 )
 
-if [ "$IMPORT_TMP" = 1 ]; then
-    ssh_exec_and_log "$DST_HOST" "$IMPORT_CMD" \
-        "Error importing $DST_DEV on $DST_HOST"
-else
-    multiline_exec_and_log \
-        "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$DST_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
-        "Error dumping $SRC to $DST_HOST:$DST_DEV"
-fi
+# ------------------------------------------------------------------------------
+# Import the image
+# ------------------------------------------------------------------------------
 
-LINSTOR_CLEANUP_RD=
+case "$TMP_TYPE" in
+    fs)
+        ssh_exec_and_log "$DST_HOST" "$IMPORT_CMD" \
+            "Error importing $DST_DEV on $DST_HOST"
+        LINSTOR_CLEANUP_RD=
+        ;;
+    dev)
+        ssh_exec_and_log "$DST_HOST" "$QEMU_IMG convert -O raw $TMP_DEV $DST_DEV" \
+            "Error importing $DST_DEV on $DST_HOST"
+        LINSTOR_CLEANUP_RD=$TMP_RES
+        ;;
+    none|*)
+        multiline_exec_and_log \
+            "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$DST_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
+            "Error dumping $SRC to $DST_HOST:$DST_DEV"
+        LINSTOR_CLEANUP_RD=
+        ;;
+esac
+
 echo "$DST"
