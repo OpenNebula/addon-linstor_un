@@ -161,18 +161,24 @@ http://*|https://*)
     ;;
 esac
 
-
-multiline_exec_and_log \
-    "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$TMP_DST bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
-    "Error dumping $SRC to $DST_HOST:$TMP_DST"
-
-ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info $TMP_DST | $AWK -F'[ ()]+' '/^virtual size: / {print $(NF-2)}')"
-if [ -z "$ORIGINAL_SIZE_B" ]; then
-    error_message "Error getting $TMP_DST size on $DST_HOST"
-    exit -1
+IMPORT_TMP=0
+ORIGINAL_INFO=$($QEMU_IMG info --output=json "$SRC" | $JQ -r '"\(.format):\(."virtual-size")"')
+ORIGINAL_FORMAT=${ORIGINAL_INFO%:*}
+ORIGINAL_SIZE_B=${ORIGINAL_INFO##*:}
+if [ "$ORIGINAL_FORMAT" != "raw" ] || [ -z "$ORIGINAL_SIZE_B" ]; then
+    IMPORT_TMP=1
+    multiline_exec_and_log \
+        "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$TMP_DST bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
+        "Error dumping $SRC to $DST_HOST:$TMP_DST"
+    ORIGINAL_SIZE_B="$($SSH $DST_HOST $QEMU_IMG info --output=json "$TMP_DST" | $JQ -r '.virtual-size')"
+    if [ -z "$ORIGINAL_SIZE_B" ]; then
+        error_message "Error getting $TMP_DST size on $DST_HOST"
+        exit -1
+    fi
 fi
+
 if [ "$ORIGINAL_SIZE_B" -lt 4096 ]; then
-  ORIGINAL_SIZE_B="4096"
+    ORIGINAL_SIZE_B="4096"
 fi
 
 # Deploy new volume
@@ -203,8 +209,14 @@ IMPORT_CMD=$(cat <<EOF
 EOF
 )
 
-ssh_exec_and_log "$DST_HOST" "$IMPORT_CMD" \
-    "Error importing $DST_DEV on $DST_HOST"
+if [ "$IMPORT_TMP" = 1 ]; then
+    ssh_exec_and_log "$DST_HOST" "$IMPORT_CMD" \
+        "Error importing $DST_DEV on $DST_HOST"
+else
+    multiline_exec_and_log \
+        "set -e -o pipefail; $DUMP | $SSH $DST_HOST '$DD of=$DST_DEV bs=${DD_BLOCK_SIZE:-64k} conv=${DD_CONV:-sparse}'" \
+        "Error dumping $SRC to $DST_HOST:$DST_DEV"
+fi
 
 LINSTOR_CLEANUP_RD=
 echo "$DST"
