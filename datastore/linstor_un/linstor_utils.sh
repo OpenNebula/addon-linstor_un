@@ -84,16 +84,6 @@ linstor_monitor_resources() {
 }
 
 #--------------------------------------------------------------------------------
-# Getting volume size from linstor server
-#   @param $1 resource name
-#   @return volume size in kilobytes
-#--------------------------------------------------------------------------------
-linstor_vd_size() {
-    $LINSTOR -m --output-version v0 volume-definition list -r "${1}" | \
-        $JQ -r '.[].rsc_dfns[]?.vlm_dfns[] | select(.vlm_nr==0).vlm_size'
-}
-
-#--------------------------------------------------------------------------------
 # Read environment variables and generate keys for linstor commands
 #   Gets environment variables:
 #   - LS_CONTROLLERS

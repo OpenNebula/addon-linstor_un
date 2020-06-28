@@ -125,18 +125,12 @@ trap linstor_cleanup_trap EXIT
 
 SAFE_DIRS=""
 
-ORIGINAL_SIZE_K="$(linstor_vd_size "$SRC_RES")"
-if [ -z "$ORIGINAL_SIZE_K" ]; then
-    error_message "Error getting $SRC_RES volume size"
-    exit -1
-fi
-
 # Deploy new volume
 linstor_exec_and_log \
     "resource-definition create $DST_RES $RD_CREATE_ARGS"
 LINSTOR_CLEANUP_RD+=" $DST_RES"
 linstor_exec_and_log \
-    "volume-definition create $DST_RES ${ORIGINAL_SIZE_K}K $VOL_CREATE_ARGS"
+    "volume-definition create $DST_RES ${SIZE}M $VOL_CREATE_ARGS"
 if [ -n "$RESOURCE_GROUP" ]; then
     linstor_exec_and_log \
         "resource-definition auto-place $DST_RES $RD_AUTO_PLACE_ARGS"
