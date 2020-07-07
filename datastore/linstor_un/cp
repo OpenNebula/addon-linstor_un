@@ -164,14 +164,17 @@ http://*|https://*)
     ;;
 esac
 
-unset i j DOWNLOADER_ELEMENTS
-
-while read -r element; do
-    DOWNLOADER_ELEMENTS[i++]="$element"
-done < <(fs_size "${SRC}" "${NO_DECOMPRESS}" "${LIMIT_TRANSFER_BW}"; echo $TYPE)
-
-SIZE="${DOWNLOADER_ELEMENTS[j++]}"
-TYPE="${DOWNLOADER_ELEMENTS[j++]}"
+# Trick to save both image size and type from fs_size function
+FS_SIZE_OUTPUT=$(
+    fs_size "${SRC}" "${NO_DECOMPRESS}" "${LIMIT_TRANSFER_BW}" || exit $?
+    echo "$TYPE"
+)
+if [ $? -ne 0 ]; then
+    error_message "Can not calculate the size for $SRC: $FS_SIZE_OUTPUT"
+    exit -1
+fi
+SIZE="${FS_SIZE_OUTPUT%%$'\n'*}"
+TYPE="${FS_SIZE_OUTPUT##*$'\n'}"
 
 # ------------------------------------------------------------------------------
 # Deploy new volume
