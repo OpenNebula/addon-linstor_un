@@ -18,10 +18,10 @@
 # Parse the output of linstor -m --output-version v0 storagepools list in json
 # format and generates a monitor string for linstor pool.
 # You **MUST** define JQ util before using this function
-#   @param $1 the json output of the command
+#   @param $1 the json output of the linstor storage-pool list command
 #--------------------------------------------------------------------------------
 linstor_monitor_storpool() {
-    echo "$1" | $JQ -r '.[].stor_pools[]?.free_space | .free_capacity, .total_capacity' \
+    echo "$1" | $JQ -r '.[].stor_pools[]? | select(.free_space).free_space | .free_capacity, .total_capacity' \
         | $AWK '{if (NR % 2) {free+=$1/1024} else {total+=$1/1024}};
         END{ printf "USED_MB=%0.f\nTOTAL_MB=%0.f\nFREE_MB=%0.f\n", total-free, total, free }'
 }
@@ -30,57 +30,12 @@ linstor_monitor_storpool() {
 # Parse the output of linstor -m --output-version v0 resource-definition list in
 # json format and generates a monitor strings for every VM.
 # You **MUST** define JQ util before using this function
-#   @param $1 the json output of the command
-#   @param $2 the ID of system datastore (to monitor)
+#   @param $1 the json output of the linstor resource-definition list command
+#   @param $2 the json output of the linstor volume list command
+#   @param $3 the ID of system datastore (to monitor)
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
-    local DS_ID=$2
-    local RES_SIZES_DATA=$($LINSTOR -m --output-version v0 resource list-volumes | \
-        $JQ '.[].resources[]? | {res: .name, size: .vlms[0].allocated}' )
-    RES_SIZES_STATUS=$?
-    if [ $RES_SIZES_STATUS -ne 0 ]; then
-        echo "$RES_SIZES_DATA"
-        exit $RES_SIZES_STATUS
-    fi
-
-    while read VM_JSON; do
-        # {
-        #   <vmid>: [
-        #     { <disk_id>: {res: <res_name>, props: []} },
-        #     ...
-        #   ]
-        # }
-        local VM_ID=$(echo "$VM_JSON" | $JQ -r '. | keys[0]')
-        echo -n "VM=[ID=$VM_ID,POLL=\""
-            while read DISK_JSON; do
-                local DISK_ID=$(echo "$DISK_JSON" | $JQ -r '. | keys[]')
-                local RES=$(echo "$DISK_JSON" | $JQ -r '.[].res')
-                local DISK_SIZE_K=$(echo "$RES_SIZES_DATA" | $JQ -r "select(.res==\"${RES}\").size" | sort -n | tail -n1)
-                local DISK_SIZE=$((DISK_SIZE_K/1024))
-                local SNAP_IDS=$(echo "$DISK_JSON" | $JQ -r '.[].props[].key' | sed -n 's|Aux/one/SNAPSHOT_\([0-9]\+\)/DISK_SIZE|\1|p' | sort -nr | xargs)
-
-                echo -n "DISK_SIZE=[ID=${DISK_ID},SIZE=${DISK_SIZE}] "
-
-                # From last to first
-                for SNAP_ID in $SNAP_IDS; do
-                    local SNAP_DISK_SIZE_K=$(echo "$DISK_JSON" | $JQ -r ".[].props | from_entries.\"Aux/one/SNAPSHOT_${SNAP_ID}/DISK_SIZE\"")
-                    local SNAP_DISK_SIZE=$((SNAP_DISK_SIZE_K/1024))
-                    local SNAP_SIZE=$((DISK_SIZE-SNAP_DISK_SIZE))
-                    echo -n "SNAPSHOT_SIZE=[ID=${SNAP_ID},DISK_ID=${DISK_ID},SIZE=${SNAP_SIZE}] "
-                    # Subtract next snapshot from current one
-                    local DISK_SIZE="$SNAP_DISK_SIZE"
-                done
-
-            done < <(echo "${VM_JSON}" | $JQ -c ".\"${VM_ID}\"[]")
-        echo "\"]"
-    done < <(echo "$1" | $JQ -c "[(
-        .[].rsc_dfns[] | select(select(.rsc_dfn_props).rsc_dfn_props | from_entries | select(.\"Aux/one/DS_ID\"==\"$DS_ID\")) |
-        {vmid: (.rsc_dfn_props | from_entries.\"Aux/one/VM_ID\"),
-        disk_id: (.rsc_dfn_props | from_entries.\"Aux/one/DISK_ID\"),
-        res: .rsc_name,
-        props: ([.rsc_dfn_props[]| select(.key | startswith(\"Aux/one\"))])}
-        )] |
-        group_by(.vmid)[] | {(.[0].vmid): [.[] | {(.disk_id): {res: .res, props: .props}}]}")
+    echo "$1" "$2" | $JQ -rs -rs '[ [(.[0][].rsc_dfns[] | select(.rsc_dfn_props) | {name: .rsc_name, props: (.rsc_dfn_props | from_entries) }), (.[1][].resources | group_by(.name)[] | max_by(.vlms[0].allocated) | {name: .name, size: .vlms[0].allocated})] | group_by(.name)[] | add | select(.props."Aux/one/VM_ID" and .props."Aux/one/DISK_ID" and .size) | {vm_id: .props."Aux/one/VM_ID", disk_id: .props."Aux/one/DISK_ID", size: .size, snapshots: [{vm_id: .props."Aux/one/VM_ID", disk_id: .props."Aux/one/DISK_ID"} + (.props | to_entries | .[] | select(.key | match("^Aux/one/SNAPSHOT_[0-9]+/DISK_SIZE$")) | {snapshot_id: .key | gsub("([a-zA-Z_/])"; ""), size: .value} )] } ] | group_by(.vm_id) | .[] | "VM = [ ID = \(.[0].vm_id), MONITOR = \"\\\n\([.[] | "  DISK_SIZE=[ID=\(.disk_id),SIZE=\(.size/1024|tostring|split(".")[0])]", (.snapshots[] | "  SNAPSHOT_SIZE=[ID=\(.snapshot_id),DISK_ID=\(.disk_id),SIZE=\(.size|tonumber/1024|tostring|split(".")[0])]")] | join("\n")+"\n  \"\n]")"'
 }
 
 #--------------------------------------------------------------------------------
@@ -181,8 +136,8 @@ function linstor_get_hosts_for_res {
 function linstor_get_diskless_hosts_for_res {
     local RES="$1"
     $LINSTOR -m --output-version v0 resource list -r $RES | \
-        $JQ -r '.[].resources[]? | select(.rsc_flags[]? |
-        contains("DISKLESS")) | .node_name' | \
+        $JQ -r '.[].resources[]? |
+        select(.rsc_flags[]? == "DISKLESS") | .node_name' | \
         xargs
 }
 
