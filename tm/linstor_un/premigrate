@@ -103,7 +103,9 @@ EOF
 ssh_exec_and_log "$SRC_HOST" "$TAR_SSH" \
     "Error copying disk directory to target host"
 
-VM_RESOURCES=$(linstor_get_res_for_property Aux/one/VM_ID $VMID)
+VM_RESOURCES=$(linstor -m --output-version v0 resource-definition list --props "Aux/one/VM_ID=$VMID" \
+    | jq -r '.[].rsc_dfns[].rsc_name')
+
 for DST_RES in $VM_RESOURCES; do
 
     # Attach diskless resource on destination host
@@ -112,6 +114,7 @@ for DST_RES in $VM_RESOURCES; do
     # Set allow-two-primaries=yes
     linstor_exec_and_log \
         "resource-definition set-property $DST_RES DrbdOptions/Net/allow-two-primaries yes"
+
 done
 
 migrate_other "$@"

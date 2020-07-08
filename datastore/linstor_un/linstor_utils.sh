@@ -282,30 +282,6 @@ function linstor_get_bridge_host {
     echo ${HOSTS_ARRAY[$ARRAY_INDEX]}
 }
 
-
-#-------------------------------------------------------------------------------
-# Gets the linstor resources with specific property assigned to it
-#   @param $1 - property name (to search)
-#   @param $2 - value
-#   @return list of resources belongs to this key=value
-#-------------------------------------------------------------------------------
-function linstor_get_res_for_property {
-    local PROPERTY="$1"
-    local VALUE="$2"
-
-    local RD_DATA="$($LINSTOR -m --output-version v0 resource-definition list)"
-    if [ $? -ne 0 ]; then
-        echo "Error getting resource-definition list"
-        exit -1
-    fi
-
-    echo "$RD_DATA" | \
-        $JQ -r ".[].rsc_dfns[]? | select(
-        select(.rsc_dfn_props).rsc_dfn_props |
-        from_entries | select(.\"${PROPERTY}\"==\"${VALUE}\"
-        )).rsc_name"
-}
-
 #-------------------------------------------------------------------------------
 # Checking return code for linstor command
 #   @param $1 - ret_code
