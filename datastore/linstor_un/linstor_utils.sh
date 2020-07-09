@@ -35,7 +35,41 @@ linstor_monitor_storpool() {
 #   @param $3 the ID of system datastore (to monitor)
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
-    echo "$1" "$2" | $JQ -rs -rs '[ [(.[0][].rsc_dfns[] | select(.rsc_dfn_props) | {name: .rsc_name, props: (.rsc_dfn_props | from_entries) }), (.[1][].resources | group_by(.name)[] | max_by(.vlms[0].allocated) | {name: .name, size: .vlms[0].allocated})] | group_by(.name)[] | add | select(.props."Aux/one/VM_ID" and .props."Aux/one/DISK_ID" and .size) | {vm_id: .props."Aux/one/VM_ID", disk_id: .props."Aux/one/DISK_ID", size: .size, snapshots: [{vm_id: .props."Aux/one/VM_ID", disk_id: .props."Aux/one/DISK_ID"} + (.props | to_entries | .[] | select(.key | match("^Aux/one/SNAPSHOT_[0-9]+/DISK_SIZE$")) | {snapshot_id: .key | gsub("([a-zA-Z_/])"; ""), size: .value} )] } ] | group_by(.vm_id) | .[] | "VM = [ ID = \(.[0].vm_id), MONITOR = \"\\\n\([.[] | "  DISK_SIZE=[ID=\(.disk_id),SIZE=\(.size/1024|tostring|split(".")[0])]", (.snapshots[] | "  SNAPSHOT_SIZE=[ID=\(.snapshot_id),DISK_ID=\(.disk_id),SIZE=\(.size|tonumber/1024|tostring|split(".")[0])]")] | join("\n")+"\n  \"\n]")"'
+    echo "$1" "$2" | $JQ -rs '
+[
+    [
+        (.[0][].rsc_dfns[] | select(.rsc_dfn_props) | {name: .rsc_name, props: (.rsc_dfn_props | from_entries) }),
+        (.[1][].resources | group_by(.name)[] | max_by(.vlms[0].allocated) | {name: .name, size: .vlms[0].allocated})
+    ]
+        | group_by(.name)[] | add | select(.props."Aux/one/VM_ID" and .props."Aux/one/DISK_ID" and .size)
+        | {
+              vm_id: .props."Aux/one/VM_ID",
+              disk_id: .props."Aux/one/DISK_ID",
+              size: .size,
+              snapshots: [
+                  {
+                      vm_id: .props."Aux/one/VM_ID",
+                      disk_id: .props."Aux/one/DISK_ID"
+                  }
+                  +
+                  (
+                      .props | to_entries | .[] | select(.key | match("^Aux/one/SNAPSHOT_[0-9]+/DISK_SIZE$")) | {snapshot_id: .key | gsub("([a-zA-Z_/])"; ""), size: .value}
+                  )
+              ]
+          }
+]
+    | group_by(.vm_id)
+    | .[]
+    | "VM = [ ID = \(.[0].vm_id), POLL = \"\(
+          [
+              .[] | "DISK_SIZE=[ID=\(.disk_id),SIZE=\(.size/1024|tostring|split(".")[0])]",
+              (
+                  .snapshots[] | "SNAPSHOT_SIZE=[ID=\(.snapshot_id),DISK_ID=\(.disk_id),SIZE=\(.size|tonumber/1024|tostring|split(".")[0])]"
+              )
+          ]
+          | join(" ")+"\"]"
+      )"
+'
 }
 
 #--------------------------------------------------------------------------------
