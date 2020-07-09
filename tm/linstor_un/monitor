@@ -110,5 +110,4 @@ if [ "$MONITOR_STATUS" != "0" ]; then
     exit $MONITOR_STATUS
 fi
 
-#echo -e "$(linstor_monitor_resources "${MONITOR_DATA}" "${MONITOR_DATA2}")"
 linstor_monitor_resources "${MONITOR_DATA}" "${MONITOR_DATA2}"
