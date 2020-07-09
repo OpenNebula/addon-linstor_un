@@ -215,6 +215,4 @@ More info:
 
 ## Author
 
-* [kvaps](mailto:kvapss@gmail.com)
-
-
+* Andrei Kvapil <[kvapss@gmail.com](mailto:kvapss@gmail.com)>
