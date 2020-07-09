@@ -35,7 +35,7 @@ linstor_monitor_storpool() {
 #   @param $3 the ID of system datastore (to monitor)
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
-    echo "$1" "$2" | $JQ -rs '
+    echo "$1" "$2" | $JQ -rs "$(cat <<EOT
 [
     [
         (.[0][].rsc_dfns[] | select(.rsc_dfn_props) | {name: .rsc_name, props: (.rsc_dfn_props | from_entries) }),
@@ -60,16 +60,17 @@ linstor_monitor_resources() {
 ]
     | group_by(.vm_id)
     | .[]
-    | "VM = [ ID = \(.[0].vm_id), POLL = \"\(
+    | "VM = [ ID = \(.[0].vm_id), $(test "$LEGACY_MONITORING" = 1 && echo POLL || echo MONITOR) = \"\(
           [
               .[] | "DISK_SIZE=[ID=\(.disk_id),SIZE=\(.size/1024|tostring|split(".")[0])]",
               (
                   .snapshots[] | "SNAPSHOT_SIZE=[ID=\(.snapshot_id),DISK_ID=\(.disk_id),SIZE=\(.size|tonumber/1024|tostring|split(".")[0])]"
               )
           ]
-          | join(" ")+"\"]"
+          | join(" ") $(test "$LEGACY_MONITORING" = 1 || echo "| @base64") +"\" ]"
       )"
-'
+EOT
+)"
 }
 
 #--------------------------------------------------------------------------------
