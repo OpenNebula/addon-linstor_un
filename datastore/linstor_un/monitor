@@ -79,16 +79,12 @@ fi
 
 # ------------ Compute datastore usage -------------
 
-MONITOR_SCRIPT=$(cat <<EOF
-    $LINSTOR -m --output-version v0 storage-pool list -s $STORAGE_POOL
-EOF
-)
-
+MONITOR_SCRIPT="timeout 10 $LINSTOR -m --output-version v0 storage-pool list -s $STORAGE_POOL"
 MONITOR_DATA="$(monitor_and_log "$MONITOR_SCRIPT" 2>&1)"
 MONITOR_STATUS=$?
 
 if [ "$MONITOR_STATUS" = "0" ]; then
-    echo -e "$(linstor_monitor_storpool "${MONITOR_DATA}")"
+    linstor_monitor_storpool "${MONITOR_DATA}"
 else
     echo "$MONITOR_DATA"
     exit $MONITOR_STATUS

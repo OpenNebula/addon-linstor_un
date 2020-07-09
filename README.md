@@ -42,6 +42,9 @@ This add-on is compatible with:
 * Copy [transport drivers](tm/linstor_un) to `/var/lib/one/remotes/tm/linstor_un`
 * Move [datastore config](datastore/linstor_un/linstor_un.conf) to `/var/lib/one/remotes/etc/datastore/linstor_un/linstor_un.conf`
 
+*Only for OpenNebula 5.10 and below*:
+* Uncomment `LEGACY_MONITORING=1` option in `linstor_un.conf` 
+
 #### Update **oned.conf**:
 
 Modify **VM_MAD** section for the **kvm** driver:
