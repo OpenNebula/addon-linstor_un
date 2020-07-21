@@ -98,9 +98,7 @@ fi
 SNAPSHOT="snapshot-${SNAP_ID}"
 
 ssh_exec_and_log_no_error "$SRC_HOST" "virsh -c $LIBVIRT_URI domfsfreeze $DEPLOY_ID" >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-    trap "ssh_exec_and_log_no_error '$SRC_HOST' 'virsh -c $LIBVIRT_URI domfsthaw $DEPLOY_ID'" EXIT TERM INT HUP
-fi
+trap "ssh_exec_and_log_no_error '$SRC_HOST' 'virsh -c $LIBVIRT_URI domfsthaw $DEPLOY_ID'" EXIT TERM INT HUP
 
 # Create snapshot
 linstor_exec_and_log \
