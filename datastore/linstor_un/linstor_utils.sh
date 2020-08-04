@@ -161,8 +161,7 @@ function linstor_get_hosts_for_res {
     $LINSTOR -m --output-version v0 resource list -r $RES | \
         $JQ -r '.[].resources[]? |
         select([.rsc_flags[]? | . != "TIE_BREAKER"] | all) |
-        .node_name' | \
-        xargs
+        .node_name'
 }
 
 #-------------------------------------------------------------------------------
@@ -176,8 +175,7 @@ function linstor_get_diskless_hosts_for_res {
         $JQ -r '.[].resources[]? |
         select([.rsc_flags[]? | . != "TIE_BREAKER"] | all) |
         select(.rsc_flags[]? == "DISKLESS") |
-        .node_name' | \
-        xargs
+        .node_name'
 }
 
 #-------------------------------------------------------------------------------
@@ -188,8 +186,7 @@ function linstor_get_diskless_hosts_for_res {
 function linstor_get_snap_names_for_res {
     local RES="$1"
     $LINSTOR -m --output-version v0 snapshot list -r $RES | \
-        $JQ -r ".[].snapshot_dfns[]?.snapshot_name" | \
-        xargs
+        $JQ -r ".[].snapshot_dfns[]?.snapshot_name"
 }
 
 #-------------------------------------------------------------------------------
@@ -207,8 +204,7 @@ function linstor_get_snap_ids_for_res {
 
     linstor_get_snap_names_for_res "$RES" | \
         $AWK -F- '$1 == "snapshot" && $2 ~ /^[0-9]+$/ {print $2}' | \
-        sort -${SORT_FLAGS} | \
-        xargs
+        sort -${SORT_FLAGS}
 }
 
 #-------------------------------------------------------------------------------
