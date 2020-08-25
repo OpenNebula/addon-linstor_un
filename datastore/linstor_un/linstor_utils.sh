@@ -217,6 +217,7 @@ function linstor_get_snap_ids_for_res {
 #   @return host to be used as bridge
 #-------------------------------------------------------------------------------
 function linstor_get_bridge_host {
+    local HOST
     local RES="$1"
     local MUST_CONTAIN="${2:-0}"
     local RR_ID="$3"
@@ -345,6 +346,9 @@ function linstor_exec_and_log {
 #   - LINSTOR_CLEANUP_SNAPSHOT
 #-------------------------------------------------------------------------------
 function linstor_cleanup_trap {
+    local RES
+    local RES_SNAPSHOT
+    local NODE_RES
     for RES in $LINSTOR_CLEANUP_RD; do
         linstor_exec_and_log_no_error \
             "resource-definition delete $RES"
