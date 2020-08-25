@@ -105,7 +105,7 @@ for SRC_RES in $VM_RESOURCES; do
 
     # Detach resource
     SRC_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$SRC_RES")
-    if [[ " $SRC_RES_DISKLESS_HOSTS " =~ " $SRC_HOST " ]]; then
+    if item_in_list "$SRC_HOST" "$SRC_RES_DISKLESS_HOSTS"; then
         linstor_exec_and_log \
             "resource delete $SRC_HOST $SRC_RES --async"
     fi

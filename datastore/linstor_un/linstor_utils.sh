@@ -244,7 +244,7 @@ function linstor_get_bridge_host {
     if [ -n "$RES" ]; then
         local RES_HOSTS="$(linstor_get_hosts_for_res $RES)"
         for HOST in $REDUCED_LIST; do
-            if [[ " $RES_HOSTS " =~ " $HOST " ]] ; then
+            if item_in_list "$HOST" "$RES_HOSTS"; then
                 HOSTS_ARRAY+=($HOST)
             fi
         done
@@ -358,7 +358,7 @@ function linstor_cleanup_trap {
     done
 
     for NODE_RES in $LINSTOR_CLEANUP_RES; do
-        if ! [[ " $LINSTOR_CLEANUP_RD " =~ " $RES " ]]; then
+        if ! item_in_list "$RES" "$LINSTOR_CLEANUP_RD"; then
             break
         fi
         local NODE=${NODE_RES%%:*}
@@ -406,7 +406,7 @@ function linstor_attach_diskless {
 
     # attach resource
     local RES_HOSTS="$(linstor_get_hosts_for_res $RES)"
-    if ! [[ " $RES_HOSTS " =~ " $HOST " ]]; then
+    if ! item_in_list "$HOST" "$RES_HOSTS"; then
         linstor_exec_and_log \
             "resource create $HOST $RES -s $DISKLESS_POOL"
         EXEC_RC=0
@@ -416,4 +416,18 @@ function linstor_attach_diskless {
     eval "exec ${FD}>&-"
     flock -n "$LOCK_FILE" rm -f "$LOCK_FILE"
     return $EXEC_RC
+}
+
+#-------------------------------------------------------------------------------
+# Checks if the list separated by spaces or newlines contains specific item
+#   @param $1 - item
+#   @param $2 - list
+#   @return code 0 - contains, 1 - not contains
+#-------------------------------------------------------------------------------
+function item_in_list {
+    local ITEM
+    for ITEM in $2; do
+      [ "$1" = "$ITEM" ] && return 0
+    done
+    return 1
 }

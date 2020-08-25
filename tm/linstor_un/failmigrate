@@ -96,7 +96,7 @@ for DST_RES in $VM_RESOURCES; do
 
     # Detach diskless resources
     DST_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$DST_RES")
-    if [[ " $DST_RES_DISKLESS_HOSTS " =~ " $DST_HOST " ]]; then
+    if item_in_list "$DST_HOST" "$DST_RES_DISKLESS_HOSTS"; then
         linstor_exec_and_log \
             "resource delete $DST_HOST $DST_RES --async"
     fi

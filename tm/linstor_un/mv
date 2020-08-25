@@ -151,7 +151,7 @@ if [ `is_disk $SRC_PATH` -eq 1 ]; then
         # Detach resource
         # We use 'no_error' due VM can be migrated from the failed host
         SRC_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$SRC_RES")
-        if [[ " $SRC_RES_DISKLESS_HOSTS " =~ " $SRC_HOST " ]]; then
+        if item_in_list "$SRC_HOST" "$SRC_RES_DISKLESS_HOSTS"; then
             linstor_exec_and_log_no_error \
                 "resource delete $SRC_HOST $SRC_RES --async"
         fi
