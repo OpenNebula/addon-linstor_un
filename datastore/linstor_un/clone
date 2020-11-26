@@ -135,7 +135,7 @@ if [ -n "$RESOURCE_GROUP" ]; then
     linstor_exec_and_log \
         "resource-definition auto-place $DST_RES $RD_AUTO_PLACE_ARGS"
 else
-    Linstor_exec_and_log \
+    linstor_exec_and_log \
         "resource create $NODE_LIST $DST_RES $RES_CREATE_ARGS"
 fi
 
