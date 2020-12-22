@@ -151,11 +151,11 @@ http://*|https://*)
     DUMP="$COPY_COMMAND"
     ;;
 
-+s3://*)                                                                                                  
-    log "Downloading $SRC to the image repository"                                                       
-                                                                                                         
+s3://*)
+    log "Downloading $SRC to the image repository"
+
     DUMP="DRV_ACTION=$DRV_ACTION $COPY_COMMAND"
-    ;;                                                                                                   
+    ;;
 
 *)
     if [ `check_restricted $SRC` -eq 1 ]; then
