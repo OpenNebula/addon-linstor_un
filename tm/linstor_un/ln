@@ -50,7 +50,7 @@ source ${DRIVER_PATH}/../../datastore/linstor_un/linstor_utils.sh
 
 DS_ID=$(echo $DST | $AWK -F/ '{print $(NF-2)}')
 DST_HOST=`arg_host $DST`
-DISK_ID=$(echo $DST|awk -F. '{print $NF}')
+DISK_ID=$(echo $DST| $AWK -F. '{print $NF}')
 
 XPATH="${DRIVER_PATH}/../../datastore/xpath.rb --stdin"
 

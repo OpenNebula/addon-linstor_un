@@ -226,7 +226,7 @@ function linstor_get_bridge_host {
     if [ -z "$BRIDGE_LIST" ]; then
         # Get online hosts
         local REDUCED_LIST="$(onehost list --no-pager --csv \
-                --filter="STAT!=off,STAT!=err,STAT!=dsbl" --list=NAME,STAT | awk -F, 'NR>1{print $1}')"
+                --filter="STAT!=off,STAT!=err,STAT!=dsbl" --list=NAME,STAT | $AWK -F, 'NR>1{print $1}')"
 
         if [ -z "$REDUCED_LIST" ]; then
             error_message "'BRIDGE_LIST' is not specified, all other nodes are offline, error or disabled"
