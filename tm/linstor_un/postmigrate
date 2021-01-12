@@ -94,8 +94,8 @@ migrate_other "$@"
 exec_and_log \
     "$SSH $SRC_HOST rm -rf $SRC_PATH"
 
-VM_RESOURCES=$(linstor -m --output-version v0 resource-definition list --props "Aux/one/VM_ID=$VMID" \
-    | jq -r '.[].rsc_dfns[].rsc_name')
+VM_RESOURCES=$(onevm show -x $VMID | $XPATH '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/SOURCE' \
+    | $AWK -v RS=" " -F/ '{print $5}')
 
 for SRC_RES in $VM_RESOURCES; do
 
