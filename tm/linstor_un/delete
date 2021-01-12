@@ -143,6 +143,12 @@ ssh_exec_and_log_no_error "$DST_HOST" "rm -f $DST_PATH" \
 
 # No need to delete no cloned images
 if [ "$CLONE" = "NO" ]; then
+    # Detach diskless resources
+    SRC_RES_DISKLESS_HOSTS=$(linstor_get_diskless_hosts_for_res "$SRC_RES")
+    if item_in_list "$DST_HOST" "$SRC_RES_DISKLESS_HOSTS"; then
+        linstor_exec_and_log \
+            "resource delete $DST_HOST $SRC_RES --async"
+    fi
     exit 0
 fi
 
