@@ -94,10 +94,29 @@ migrate_other "$@"
 exec_and_log \
     "$SSH $SRC_HOST rm -rf $SRC_PATH"
 
-VM_RESOURCES=$(onevm show -x $VMID | $XPATH '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/SOURCE' \
-    | $AWK -v RS=" " -F/ '{print $5}')
+unset i j XPATH_ELEMENTS
 
-for SRC_RES in $VM_RESOURCES; do
+while IFS= read -r -d '' element; do
+    XPATH_ELEMENTS[i++]="$element"
+done < <(onevm show -x $VMID | $XPATH \
+                    '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/DISK_ID' \
+                    '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/IMAGE_ID' \
+                    '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/CLONE')
+
+DISK_IDS=( ${XPATH_ELEMENTS[j++]} )
+IMAGE_IDS=( ${XPATH_ELEMENTS[j++]} )
+CLONES=( ${XPATH_ELEMENTS[j++]} )
+
+for (( i=0; i<${#DISK_IDS[@]}; i++ )); do
+    IMAGE_ID=${IMAGE_IDS[$i]}
+    DISK_ID=${DISK_IDS[$i]}
+    CLONE=${CLONES[$i]}
+
+    if [ "$CLONE" != "NO" ]; then
+        SRC_RES="one-vm-$VMID-disk-$DISK_ID"
+    else
+        SRC_RES="one-image-$IMAGE_ID"
+    fi
 
     # Unset allow-two-primaries
     linstor_exec_and_log \
