@@ -94,23 +94,22 @@ migrate_other "$@"
 exec_and_log \
     "$SSH $SRC_HOST rm -rf $SRC_PATH"
 
-unset i j XPATH_ELEMENTS
+VM_XML=$(onevm show -x $VMID)
+DISK_IDS="$(echo "$VM_XML" | $XPATH \
+                    '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/DISK_ID')"
 
-while IFS= read -r -d '' element; do
-    XPATH_ELEMENTS[i++]="$element"
-done < <(onevm show -x $VMID | $XPATH \
-                    '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/DISK_ID' \
-                    '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/IMAGE_ID' \
-                    '%m%/VM/TEMPLATE/DISK[TM_MAD="linstor_un"]/CLONE')
+for DISK_ID in $DISK_IDS; do
 
-DISK_IDS=( ${XPATH_ELEMENTS[j++]} )
-IMAGE_IDS=( ${XPATH_ELEMENTS[j++]} )
-CLONES=( ${XPATH_ELEMENTS[j++]} )
+    unset i j XPATH_ELEMENTS
 
-for (( i=0; i<${#DISK_IDS[@]}; i++ )); do
-    IMAGE_ID=${IMAGE_IDS[$i]}
-    DISK_ID=${DISK_IDS[$i]}
-    CLONE=${CLONES[$i]}
+    while IFS= read -r -d '' element; do
+        XPATH_ELEMENTS[i++]="$element"
+    done < <(echo "$VM_XML" | $XPATH \
+                        "/VM/TEMPLATE/DISK[DISK_ID=\"$DISK_ID\"]/IMAGE_ID" \
+                        "/VM/TEMPLATE/DISK[DISK_ID=\"$DISK_ID\"]/CLONE")
+
+    IMAGE_ID="${XPATH_ELEMENTS[j++]}"
+    CLONE="${XPATH_ELEMENTS[j++]}"
 
     if [ "$CLONE" != "NO" ]; then
         SRC_RES="one-vm-$VMID-disk-$DISK_ID"
