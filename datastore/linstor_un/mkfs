@@ -35,7 +35,9 @@ DRIVER_PATH=$(dirname $0)
 UTILS_PATH="${DRIVER_PATH}/.."
 
 source ${DRIVER_PATH}/../libfs.sh
-source ${DRIVER_PATH}/../../etc/datastore/datastore.conf
+if [ -f ${DRIVER_PATH}/../../etc/datastore/datastore.conf ]; then
+    source ${DRIVER_PATH}/../../etc/datastore/datastore.conf
+fi
 source ${DRIVER_PATH}/../../etc/datastore/linstor_un/linstor_un.conf
 source ${DRIVER_PATH}/linstor_utils.sh
 
@@ -71,6 +73,7 @@ done < <($XPATH     /DS_DRIVER_ACTION_DATA/DATASTORE/BASE_PATH \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/STORAGE_POOL \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/DISKLESS_POOL \
                     /DS_DRIVER_ACTION_DATA/DATASTORE/TEMPLATE/ENCRYPTION \
+                    /DS_DRIVER_ACTION_DATA/IMAGE/FSTYPE \
                     /DS_DRIVER_ACTION_DATA/IMAGE/FORMAT \
                     /DS_DRIVER_ACTION_DATA/IMAGE/FS \
                     /DS_DRIVER_ACTION_DATA/IMAGE/SIZE)
@@ -96,7 +99,8 @@ DO_NOT_PLACE_WITH_REGEX="${XPATH_ELEMENTS[j++]}"
 STORAGE_POOL="${XPATH_ELEMENTS[j++]}"
 DISKLESS_POOL="${XPATH_ELEMENTS[j++]:-DfltDisklessStorPool}"
 ENCRYPTION="${XPATH_ELEMENTS[j++]}"
-FORMAT="${XPATH_ELEMENTS[j++]}"
+FSTYPE="${XPATH_ELEMENTS[j++]}"
+FORMAT="${XPATH_ELEMENTS[j++]:-$FSTYPE}"
 FS="${XPATH_ELEMENTS[j++]}"
 SIZE="${XPATH_ELEMENTS[j++]}"
 
