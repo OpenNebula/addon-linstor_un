@@ -45,6 +45,9 @@ This add-on is compatible with:
 *Only for OpenNebula 5.10 and below*:
 * Uncomment `LEGACY_MONITORING=1` option in `linstor_un.conf` 
 
+*Only for OpenNebula 5.12 and below*:
+* Copy `/var/lib/one/remotes/tm/ssh/context` to `/var/lib/one/remotes/tm/linstor_un/context`
+
 #### Update **oned.conf**:
 
 Modify **VM_MAD** section for the **kvm** driver:
