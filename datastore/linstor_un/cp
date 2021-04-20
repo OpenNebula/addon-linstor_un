@@ -232,4 +232,4 @@ else
 fi
 
 LINSTOR_CLEANUP_RD=
-echo "$DST"
+echo "$DST raw"
