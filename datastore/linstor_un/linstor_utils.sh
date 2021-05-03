@@ -160,7 +160,7 @@ function linstor_get_hosts_for_res {
     local RES="$1"
     $LINSTOR -m --output-version v0 resource list -r $RES | \
         $JQ -r '.[].resources[]? |
-        select([.rsc_flags[]? | . != "TIE_BREAKER"] | all) |
+        select([.rsc_flags[]? | . != "TIE_BREAKER" and . != "DELETE"] | all) |
         .node_name'
 }
 
@@ -173,7 +173,7 @@ function linstor_get_diskless_hosts_for_res {
     local RES="$1"
     $LINSTOR -m --output-version v0 resource list -r $RES | \
         $JQ -r '.[].resources[]? |
-        select([.rsc_flags[]? | . != "TIE_BREAKER"] | all) |
+        select([.rsc_flags[]? | . != "TIE_BREAKER" and . != "DELETE"] | all) |
         select(.rsc_flags[]? == "DISKLESS") |
         .node_name'
 }
