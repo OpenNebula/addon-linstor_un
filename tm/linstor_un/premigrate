@@ -100,8 +100,15 @@ $TAR -C $DST_PATH_DIRNAME --sparse -cf - $DST_PATH_BASENAME | $SSH $DST_HOST '$T
 EOF
 )
 
-ssh_exec_and_log "$SRC_HOST" "$TAR_SSH" \
-    "Error copying disk directory to target host"
+# ssh_forward function was introduced in OpenNebula 5.12
+# try keeping support for older versions
+if declare -F ssh_forward >/dev/null; then
+    ssh_forward ssh_exec_and_log "$SRC_HOST" "$TAR_SSH" \
+        "Error copying disk directory to target host"
+else
+    ssh_exec_and_log "$SRC_HOST" "$TAR_SSH" \
+        "Error copying disk directory to target host"
+fi
 
 VM_XML=$(onevm show -x $VMID)
 DISK_IDS="$(echo "$VM_XML" | $XPATH \
