@@ -129,7 +129,7 @@ if [ -z "$ORIGINAL_SIZE_K" ]; then
     exit -1
 fi
 if [ "$ORIGINAL_SIZE_K" -lt 4 ]; then
-  ORIGINAL_SIZE_B="4"
+    ORIGINAL_SIZE_K="4"
 fi
 
 # Deploy new volume
