@@ -35,6 +35,11 @@ linstor_monitor_storpool() {
 #   @param $3 the ID of system datastore (to monitor)
 #--------------------------------------------------------------------------------
 linstor_monitor_resources() {
+    if [ -d "${0%/*}/../../im/kvm-probes.d/vm/monitor" ]; then
+        MONITOR_TAG=MONITOR
+    else
+        MONITOR_TAG=POLL
+    fi
     echo "$1" "$2" | $JQ -rs "$(cat <<EOT
 [
     [
@@ -60,14 +65,14 @@ linstor_monitor_resources() {
 ]
     | group_by(.vm_id)
     | .[]
-    | "VM = [ ID = \(.[0].vm_id), $(test "$LEGACY_MONITORING" = 1 && echo POLL || echo MONITOR) = \"\(
+    | "VM = [ ID = \(.[0].vm_id), $MONITOR_TAG = \"\(
           [
               .[] | "DISK_SIZE=[ID=\(.disk_id),SIZE=\(.size/1024|tostring|split(".")[0])]",
               (
                   .snapshots[] | "SNAPSHOT_SIZE=[ID=\(.snapshot_id),DISK_ID=\(.disk_id),SIZE=\(.size|tonumber/1024|tostring|split(".")[0])]"
               )
           ]
-          | join(" ") $(test "$LEGACY_MONITORING" = 1 || echo "| @base64") +"\" ]"
+          | join(" ") $(test "$MONITOR_TAG" != MONITOR || echo "| @base64") +"\" ]"
       )"
 EOT
 )"
