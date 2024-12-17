@@ -39,8 +39,13 @@ source ${DRIVER_PATH}/linstor_utils.sh
 
 # -------- Get datastore arguments from OpenNebula core ------------
 
-DRV_ACTION=$1
-ID=$2
+if [ -n "$2" ]; then
+    DRV_ACTION=$1
+    ID=$2
+else
+    DRV_ACTION=$(cat -)
+    ID=$1
+fi
 
 XPATH="${UTILS_PATH}/xpath.rb -b $DRV_ACTION"
 
